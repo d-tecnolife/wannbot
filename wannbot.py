@@ -1,7 +1,13 @@
+import base64
 import os
 
 import discord
+import discord.ext.tasks
 import dotenv
+import google.auth.transport.requests
+import google.oauth2.credentials
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
 
 dotenv.load_dotenv()
 
@@ -25,4 +31,4 @@ async def on_message(message):
         await message.channel.send("Hello How Are You")
 
 
-client.run(os.getenv("token"))
+client.run(os.getenv("bot_token"))
