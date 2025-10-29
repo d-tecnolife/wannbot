@@ -29,7 +29,7 @@ class FlightAlerts(commands.Cog):
         for flight_data in flights:
             flight = flight_data["flight"]
             if flight["savings"] != "N/A":
-                savings_num = int(flight["savings"].rstrip('%'))
+                savings_num = int(flight["savings"].rstrip("%"))
                 if savings_num >= 40:
                     color = discord.Color.gold()  # Great deal
                 elif savings_num >= 20:
@@ -40,16 +40,16 @@ class FlightAlerts(commands.Cog):
                 color = discord.Color.blue()
 
             embed = discord.Embed(
-                title=f"{flight["airline"]}",
-                description=f"### **{flight["routes"]}**\n{flight["dates"]}\n",
+                title=f"{flight['airline']}",
+                description=f"### **{flight['routes']}**\n{flight['dates']}\n",
                 color=color,
             )
 
-            embed.add_field(name="Price:", value=f"{flight["price"]}", inline=True)
+            embed.add_field(name="Price:", value=f"{flight['price']}", inline=True)
 
             if flight["savings"] != "N/A":
                 embed.add_field(
-                    name="Save:", value=f"{flight["savings"]}%", inline=True
+                    name="Save:", value=f"{flight['savings']}%", inline=True
                 )
 
             if flight["savings"] == "N/A":
@@ -57,7 +57,7 @@ class FlightAlerts(commands.Cog):
 
             embed.add_field(
                 name="Book now",
-                value=f"[View on Google Flights]({flight["link"]})",
+                value=f"[View on Google Flights]({flight['link']})",
                 inline=False,
             )
             embed.timestamp = discord.utils.utcnow()
