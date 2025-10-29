@@ -1,10 +1,10 @@
 import base64
 import re
 
-from cogs.flightalerts.auth_gmail import authenticate_gmail
+from cogs.flight_alerts.auth_gmail import authenticate_gmail
 from config import GMAIL_QUERY
 
-gmail = authenticate_gmail()
+# gmail = authenticate_gmail()
 
 
 def get_unread_flight_alerts(gmail):
@@ -19,15 +19,15 @@ def get_email_content(gmail, id):
     return msg
 
 
-# def mark_as_read(gmail, message_id):
+def mark_as_read(gmail, id):
+    gmail.users().messages().modify(
+        userId="me", id=id, body={"removeLabelIds": ["UNREAD"]}
+    ).execute()
 
 
 def parse_flight_email(msg):
     flights = []
-    AIRPORT_CODES = {
-        "YYZ": "Toronto",
-        "YWG": "Winnipeg"
-    }
+    AIRPORT_CODES = {"YYZ": "Toronto", "YWG": "Winnipeg"}
     if "parts" in msg["payload"]:
         for part in msg["payload"]["parts"]:
             if part["mimeType"] == "text/plain":
@@ -64,8 +64,8 @@ def parse_flight_email(msg):
         return []
 
     for i in range(match_count):
-        origin, destination = routes[i].split('–')
-    
+        origin, destination = routes[i].split("–")
+
         route = f"{AIRPORT_CODES.get(origin, origin)} to {AIRPORT_CODES.get(destination, destination)}"
 
         flights.append(
@@ -75,16 +75,28 @@ def parse_flight_email(msg):
                 "price": prices[i],
                 "airline": airlines[i],
                 "link": links[i],
-                "routes": route
+                "routes": route,
             }
         )
     return flights
 
 
-id_list = get_unread_flight_alerts(gmail)
-if id_list:
+def check_flights():
+    flight_data = []
+    gmail = authenticate_gmail()
+    id_list = get_unread_flight_alerts(gmail)
     for id in id_list:
         msg = get_email_content(gmail, id)
         flight_info = parse_flight_email(msg)
         for flight in flight_info:
-            print(f"\nPrice update:\n{flight["airline"]}\n{flight["dates"]}\n{flight["routes"]}\n{flight["price"]} ({flight["savings"]}% lower)\n{flight["link"]}")
+            flight_data.append({"email_id": id, "flight": flight})
+    return gmail, flight_data
+
+
+# id_list = get_unread_flight_alerts(gmail)
+# if id_list:
+#     for id in id_list:
+#         msg = get_email_content(gmail, id)
+#         flight_info = parse_flight_email(msg)
+#         for flight in flight_info:
+#             print(f"\nPrice update:\n{flight["airline"]}\n{flight["dates"]}\n{flight["routes"]}\n{flight["price"]} ({flight["savings"]}% lower)\n{flight["link"]}")
