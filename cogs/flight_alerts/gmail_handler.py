@@ -96,8 +96,7 @@ def check_flights():
         print(f"[{datetime.now()}] Error authenticating Gmail: {e}")
         return None
     id_list = get_unread_flight_alerts(gmail)
-    for id in id_list:
-        print(f"[{datetime.now()}] Parsing email {id}..")
+    for id in reversed(id_list):
         msg = get_email_content(gmail, id)
         flight_info = parse_flight_email(msg)
         for flight in flight_info:
