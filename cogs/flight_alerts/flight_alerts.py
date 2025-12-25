@@ -15,12 +15,12 @@ class FlightAlerts(commands.Cog):
 
     @tasks.loop(minutes=30)
     async def check_flights(self):
-        printf(f"[{datetime.now().timestamp()}] Checking for flight alerts...")
+        print(f"[{datetime.now().timestamp()}] Checking for flight alerts...")
 
         gmail, flights = gmail_handler.check_flights()
 
         if not flights:
-            printf(f"[{datetime.now().timestamp()}] No new flights found")
+            print(f"[{datetime.now().timestamp()}] No new flights found")
             return
 
         channel = self.bot.get_channel(ALERT_CHANNEL_ID)

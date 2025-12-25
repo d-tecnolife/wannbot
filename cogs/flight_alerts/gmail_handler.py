@@ -84,7 +84,7 @@ def parse_flight_email(msg):
 
 def check_flights():
     flight_data = []
-    printf(f"[{datetime.now().timestamp()}] Authenticating Gmail..")
+    print(f"[{datetime.now().timestamp()}] Authenticating Gmail..")
     gmail = authenticate_gmail()
     id_list = get_unread_flight_alerts(gmail)
     for id in id_list:
