@@ -1,7 +1,8 @@
-import discord
-from discord.ext import commands, tasks
+from datetime import datetime
 
+import discord
 from config import ALERT_CHANNEL_ID
+from discord.ext import commands, tasks
 
 from . import gmail_handler
 
@@ -13,7 +14,7 @@ class FlightAlerts(commands.Cog):
 
     @tasks.loop(minutes=30)
     async def check_flights(self):
-        print("Checking for flight alerts...")
+        printf(f"{datetime.now().timestamp()} Checking for flight alerts...")
 
         gmail, flights = gmail_handler.check_flights()
 
@@ -31,11 +32,11 @@ class FlightAlerts(commands.Cog):
             if flight["savings"] != "N/A":
                 savings_num = int(flight["savings"].rstrip("%"))
                 if savings_num >= 40:
-                    color = discord.Color.gold()  # Great deal
+                    color = discord.Color.gold()
                 elif savings_num >= 20:
-                    color = discord.Color.green()  # Good deal
+                    color = discord.Color.green()
                 else:
-                    color = discord.Color.blue()  # Decent deal
+                    color = discord.Color.blue()
             else:
                 color = discord.Color.blue()
 
