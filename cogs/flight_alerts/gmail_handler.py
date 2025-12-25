@@ -84,8 +84,14 @@ def parse_flight_email(msg):
 
 def check_flights():
     flight_data = []
-    print(f"[{datetime.now().timestamp()}] Authenticating Gmail..")
-    gmail = authenticate_gmail()
+    print(f"[{datetime.now()}] Authenticating Gmail..")
+
+    try:
+        gmail = authenticate_gmail()
+        print(f"[{datetime.now()}] Gmail successfully authenticated")
+    except Exception as e:
+        print(f"[{datetime.now()}] Error authenticating Gmail: {e}")
+        return None
     id_list = get_unread_flight_alerts(gmail)
     for id in id_list:
         msg = get_email_content(gmail, id)
