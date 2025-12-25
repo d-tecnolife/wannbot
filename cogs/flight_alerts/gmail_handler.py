@@ -9,8 +9,11 @@ from config import GMAIL_QUERY
 
 
 def get_unread_flight_alerts(gmail):
-    result = gmail.users().messages().list(userId="me", q=GMAIL_QUERY).execute()
-    id_list = result.get("messages", [])
+    try:
+        result = gmail.users().messages().list(userId="me", q=GMAIL_QUERY).execute()
+        id_list = result.get("messages", [])
+    except Exception as e:
+        print(f"[{datetime.now()}] Error: {e}\nMaybe token expired?")
     # returns list of msg ids in inbox
     return id_list
 
@@ -94,6 +97,7 @@ def check_flights():
         return None
     id_list = get_unread_flight_alerts(gmail)
     for id in id_list:
+        print(f"[{datetime.now()}] Parsing email {id}..")
         msg = get_email_content(gmail, id)
         flight_info = parse_flight_email(msg)
         for flight in flight_info:
