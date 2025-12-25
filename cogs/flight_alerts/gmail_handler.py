@@ -1,5 +1,6 @@
 import base64
 import re
+from datetime import datetime
 
 from cogs.flight_alerts.auth_gmail import authenticate_gmail
 from config import GMAIL_QUERY
@@ -83,6 +84,7 @@ def parse_flight_email(msg):
 
 def check_flights():
     flight_data = []
+    printf(f"[{datetime.now().timestamp()}] Authenticating Gmail..")
     gmail = authenticate_gmail()
     id_list = get_unread_flight_alerts(gmail)
     for id in id_list:
