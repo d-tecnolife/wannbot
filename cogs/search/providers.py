@@ -218,14 +218,16 @@ class GeminiClient:
         api_key: str | None,
         model: str,
         persona: str = "",
-        max_output_tokens: int = 4096,
+        max_output_tokens: int = 8192,
         thinking_level: str = "medium",
-        max_continuations: int = 1,
+        target_words: int = 700,
+        max_continuations: int = 0,
     ):
         self.model = model
         self.persona = persona
         self.max_output_tokens = max_output_tokens
         self.thinking_level = thinking_level
+        self.target_words = target_words
         self.max_continuations = max_continuations
         self.client = genai.Client(api_key=api_key) if api_key else None
 
@@ -241,7 +243,8 @@ class GeminiClient:
             "Answer the user's question directly and stay focused, but include enough "
             "detail to fully answer comparisons and calculations. Do not claim to have "
             "searched the web and do not invent citations. Finish every answer cleanly "
-            "and never intentionally stop mid-sentence."
+            "and never intentionally stop mid-sentence. Keep the complete response at "
+            f"or below {self.target_words} words, using fewer when sufficient."
         )
         if self.persona:
             system_instruction += (
@@ -250,7 +253,7 @@ class GeminiClient:
             )
 
         prompt = query
-        answer_parts: list[str] = []
+        answer = ""
         for attempt in range(self.max_continuations + 1):
             try:
                 response = await self.client.aio.interactions.create(
@@ -287,18 +290,23 @@ class GeminiClient:
             text = getattr(response, "output_text", None)
             if not text or not text.strip():
                 raise ProviderError("Gemini returned no usable answer.")
-            answer_parts.append(text.strip())
+            answer = text.strip()
 
             if getattr(response, "status", None) != "incomplete":
                 break
             if attempt == self.max_continuations:
-                break
+                raise ProviderError(
+                    "Gemini hit its output limit before finishing. Try a narrower question.",
+                    code="output_limit",
+                )
 
+            target_words = max(300, 700 // (2**attempt))
             prompt = (
-                "Continue the answer below exactly where it stopped. Return only the "
-                "continuation, do not repeat earlier material, and finish the answer "
-                f"cleanly.\n\nOriginal question:\n{query}\n\nPartial answer:\n"
-                + "\n\n".join(answer_parts)
+                "The draft answer below was cut off. Write a complete, standalone "
+                "replacement answer that makes sense without seeing the draft. Include "
+                f"all necessary context in at most {target_words} words, and do not "
+                "mention this retry or the incomplete draft.\n\n"
+                f"Original question:\n{query}\n\nIncomplete draft:\n{answer}"
             )
 
-        return "\n\n".join(answer_parts)
+        return answer

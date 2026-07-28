@@ -4,6 +4,7 @@ import pytest
 
 from cogs.search.providers import (
     GeminiClient,
+    ProviderError,
     SerpAPIClient,
     parse_ai_overview,
     parse_image_results,
@@ -134,9 +135,10 @@ async def test_gemini_answer_includes_configured_persona():
     client = object.__new__(GeminiClient)
     client.model = "test-model"
     client.persona = "Speak like a friendly ship computer."
-    client.max_output_tokens = 4096
+    client.max_output_tokens = 8192
     client.thinking_level = "medium"
-    client.max_continuations = 1
+    client.target_words = 700
+    client.max_continuations = 0
     client.client = type(
         "Client",
         (),
@@ -161,31 +163,28 @@ async def test_gemini_answer_includes_configured_persona():
     request = create_interaction.await_args.kwargs
     assert request["input"] == "What is a pulsar?"
     assert request["store"] is False
-    assert request["generation_config"]["max_output_tokens"] == 4096
+    assert request["generation_config"]["max_output_tokens"] == 8192
     assert request["generation_config"]["thinking_level"] == "medium"
     assert "Speak like a friendly ship computer." in request["system_instruction"]
     assert "Do not claim to have searched the web" in request["system_instruction"]
+    assert "at or below 700 words" in request["system_instruction"]
 
 
 @pytest.mark.asyncio
-async def test_gemini_continues_an_incomplete_answer_once():
+async def test_gemini_reports_an_incomplete_single_answer():
     first = type(
         "Response",
         (),
         {"output_text": "First part.", "status": "incomplete"},
     )()
-    second = type(
-        "Response",
-        (),
-        {"output_text": "Second part.", "status": "completed"},
-    )()
-    create_interaction = AsyncMock(side_effect=[first, second])
+    create_interaction = AsyncMock(return_value=first)
     client = object.__new__(GeminiClient)
     client.model = "test-model"
     client.persona = ""
-    client.max_output_tokens = 4096
+    client.max_output_tokens = 8192
     client.thinking_level = "medium"
-    client.max_continuations = 1
+    client.target_words = 700
+    client.max_continuations = 0
     client.client = type(
         "Client",
         (),
@@ -204,10 +203,8 @@ async def test_gemini_continues_an_incomplete_answer_once():
         },
     )()
 
-    answer = await client.answer("Compare two builds.")
+    with pytest.raises(ProviderError) as exc_info:
+        await client.answer("Compare two builds.")
 
-    assert answer == "First part.\n\nSecond part."
-    assert create_interaction.await_count == 2
-    continuation = create_interaction.await_args_list[1].kwargs["input"]
-    assert "Continue the answer" in continuation
-    assert "First part." in continuation
+    assert exc_info.value.code == "output_limit"
+    assert create_interaction.await_count == 1
