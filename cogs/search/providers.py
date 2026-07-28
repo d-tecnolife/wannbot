@@ -213,8 +213,9 @@ class SerpAPIClient:
 
 
 class GeminiClient:
-    def __init__(self, api_key: str | None, model: str):
+    def __init__(self, api_key: str | None, model: str, persona: str = ""):
         self.model = model
+        self.persona = persona
         self.client = genai.Client(api_key=api_key) if api_key else None
 
     async def close(self) -> None:
@@ -225,16 +226,23 @@ class GeminiClient:
         if not self.client:
             raise ProviderError("Gemini fallback is not configured.", code="configuration")
 
+        system_instruction = (
+            "Answer the user's question directly and concisely. Keep the response "
+            "under 500 words. Do not claim to have searched the web and do not invent "
+            "citations."
+        )
+        if self.persona:
+            system_instruction += (
+                "\n\nAdopt the following persona while preserving accuracy and following "
+                f"the preceding requirements:\n{self.persona}"
+            )
+
         try:
             response = await self.client.aio.models.generate_content(
                 model=self.model,
                 contents=query,
                 config={
-                    "system_instruction": (
-                        "Answer the user's question directly and concisely. Keep the response "
-                        "under 500 words. Do not claim to have searched the web and do not invent "
-                        "citations."
-                    ),
+                    "system_instruction": system_instruction,
                     "max_output_tokens": 1024,
                 },
             )

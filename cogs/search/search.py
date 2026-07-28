@@ -5,7 +5,7 @@ from urllib.parse import quote_plus
 import discord
 from discord.ext import commands
 
-from config import GEMINI_API_KEY, GEMINI_MODEL, SERPAPI_API_KEY
+from config import GEMINI_API_KEY, GEMINI_MODEL, GEMINI_PERSONA, SERPAPI_API_KEY
 
 from .providers import (
     GeminiClient,
@@ -60,9 +60,9 @@ def answer_embed(
     answer: str,
     *,
     references: tuple[Reference, ...] = (),
-    fallback: bool = False,
+    persona: bool = False,
 ) -> discord.Embed:
-    title = "Gemini fallback — not search-grounded" if fallback else "Google AI Overview"
+    title = "Whip and Nae Nae Bot" if persona else "Google AI Overview"
     embed = discord.Embed(
         title=title,
         description=truncate_answer(answer),
@@ -168,22 +168,41 @@ class Search(commands.Cog):
     @commands.command(name="ask")
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def ask(self, ctx: commands.Context, *, query: str) -> None:
-        """Show Google's AI Overview, with an ungrounded Gemini fallback."""
+        """Show Google's AI Overview."""
         async with ctx.typing():
             overview = await self.serpapi.ai_overview(
                 query, safe=not channel_is_nsfw(ctx.channel)
             )
-            if overview:
-                embed = answer_embed(
-                    query,
-                    overview.text,
-                    references=overview.references,
-                )
-            else:
-                fallback = await self.gemini.answer(query)
-                embed = answer_embed(query, fallback, fallback=True)
 
-        await ctx.reply(embed=embed, mention_author=False)
+        if not overview:
+            search_url = f"https://www.google.com/search?q={quote_plus(query)}"
+            await ctx.reply(
+                "Google did not return an AI Overview for that query.\n"
+                f"[Search Google instead]({search_url})",
+                mention_author=False,
+            )
+            return
+
+        await ctx.reply(
+            embed=answer_embed(
+                query,
+                overview.text,
+                references=overview.references,
+            ),
+            mention_author=False,
+        )
+
+    @commands.command(name="askwann")
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def ask_wann(self, ctx: commands.Context, *, query: str) -> None:
+        """Ask Gemini using the configured wannbot persona."""
+        async with ctx.typing():
+            answer = await self.gemini.answer(query)
+
+        await ctx.reply(
+            embed=answer_embed(query, answer, persona=True),
+            mention_author=False,
+        )
 
     async def cog_command_error(
         self, ctx: commands.Context, error: commands.CommandError
@@ -220,5 +239,5 @@ class Search(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     serpapi = SerpAPIClient(SERPAPI_API_KEY)
-    gemini = GeminiClient(GEMINI_API_KEY, GEMINI_MODEL)
+    gemini = GeminiClient(GEMINI_API_KEY, GEMINI_MODEL, GEMINI_PERSONA)
     await bot.add_cog(Search(bot, serpapi, gemini))

@@ -9,8 +9,8 @@ answer search commands.
   10-result carousel. Anyone can use the Previous and Next buttons. Buttons expire
   after five minutes of inactivity.
 - `!ask <query>` shows Google's AI Overview and up to five sources. If Google does
-  not return an overview, the bot uses Gemini and clearly labels the answer as
-  ungrounded.
+  not return an overview, the bot links to the normal Google results instead.
+- `!askwann <query>` asks Gemini directly using the configured `GEMINI_PERSONA`.
 
 The prefix defaults to `!` and can be changed with `BOT_PREFIX`. Each search command
 has its own 10-second per-user cooldown. SafeSearch is enabled except in Discord
@@ -27,6 +27,7 @@ BOT_PREFIX=!
 SERPAPI_API_KEY=your-serpapi-key
 GEMINI_API_KEY=your-gemini-api-key
 GEMINI_MODEL=gemini-3.5-flash
+GEMINI_PERSONA=Answer like a dry, sarcastic spaceship computer while staying helpful.
 ```
 
 The Discord application must have the Message Content privileged intent enabled.
@@ -35,8 +36,9 @@ by image and AI Overview requests. An image command normally uses one search. An
 Overview normally uses one search but can use a second search when Google returns a
 lazy-loading token. The bot reports quota errors and never purchases more searches.
 
-Gemini is only used when Google does not return an AI Overview. Free-tier Gemini
-content may be used by Google to improve its products.
+Gemini is only used by `!askwann`. Free-tier Gemini content may be used by Google
+to improve its products. `GEMINI_PERSONA` is optional and changes the tone of
+`!askwann`; SerpAPI returns Google's existing AI Overview unchanged for `!ask`.
 
 ## Development
 

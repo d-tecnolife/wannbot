@@ -6,6 +6,7 @@ import pytest
 from cogs.search.providers import ImageResult, Reference
 from cogs.search.search import (
     ImageCarousel,
+    Search,
     answer_embed,
     channel_is_nsfw,
     format_sources,
@@ -52,18 +53,18 @@ def test_sources_are_limited_and_markdown_safe():
     assert "Source 5" not in rendered
 
 
-def test_answer_embed_labels_fallback_and_includes_sources():
+def test_answer_embed_labels_persona_and_includes_sources():
     embed = answer_embed(
         "question",
         "answer",
         references=(Reference("Example", "https://example.com"),),
     )
-    fallback = answer_embed("question", "fallback", fallback=True)
+    persona = answer_embed("question", "persona", persona=True)
 
     assert embed.title == "Google AI Overview"
     assert embed.fields[1].name == "Sources"
-    assert fallback.title == "Gemini fallback — not search-grounded"
-    assert len(fallback.fields) == 1
+    assert persona.title == "Whip and Nae Nae Bot"
+    assert len(persona.fields) == 1
 
 
 @pytest.mark.asyncio
@@ -99,3 +100,10 @@ def test_single_result_disables_navigation():
 
     assert all(child.disabled for child in view.children)
     assert view.make_embed().footer.text == "Result 1 of 1"
+
+
+def test_ask_and_askwann_are_separate_commands():
+    assert Search.ask.name == "ask"
+    assert Search.ask_wann.name == "askwann"
+    assert Search.ask._buckets._cooldown.per == 10
+    assert Search.ask_wann._buckets._cooldown.per == 10

@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from cogs.search.providers import (
+    GeminiClient,
     SerpAPIClient,
     parse_ai_overview,
     parse_image_results,
@@ -120,3 +121,30 @@ async def test_ai_overview_does_not_follow_up_without_token():
     assert overview is None
     assert client._request.await_count == 1
     assert client._request.await_args.args[0]["safe"] == "off"
+
+
+@pytest.mark.asyncio
+async def test_gemini_answer_includes_configured_persona():
+    response = type("Response", (), {"text": "Persona answer"})()
+    generate_content = AsyncMock(return_value=response)
+    client = object.__new__(GeminiClient)
+    client.model = "test-model"
+    client.persona = "Speak like a friendly ship computer."
+    client.client = type(
+        "Client",
+        (),
+        {
+            "aio": type(
+                "AsyncClient",
+                (),
+                {"models": type("Models", (), {"generate_content": generate_content})()},
+            )()
+        },
+    )()
+
+    answer = await client.answer("What is a pulsar?")
+
+    assert answer == "Persona answer"
+    config = generate_content.await_args.kwargs["config"]
+    assert "Speak like a friendly ship computer." in config["system_instruction"]
+    assert "Do not claim to have searched the web" in config["system_instruction"]
