@@ -130,6 +130,7 @@ async def test_gemini_answer_includes_configured_persona():
     client = object.__new__(GeminiClient)
     client.model = "test-model"
     client.persona = "Speak like a friendly ship computer."
+    client.max_output_tokens = 4096
     client.client = type(
         "Client",
         (),
@@ -154,6 +155,6 @@ async def test_gemini_answer_includes_configured_persona():
     request = create_interaction.await_args.kwargs
     assert request["input"] == "What is a pulsar?"
     assert request["store"] is False
-    assert request["generation_config"]["max_output_tokens"] == 1024
+    assert request["generation_config"]["max_output_tokens"] == 4096
     assert "Speak like a friendly ship computer." in request["system_instruction"]
     assert "Do not claim to have searched the web" in request["system_instruction"]

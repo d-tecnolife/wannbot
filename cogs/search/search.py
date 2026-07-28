@@ -6,6 +6,7 @@ import discord
 from discord.ext import commands
 
 from bot_config import (
+    GEMINI_MAX_OUTPUT_TOKENS,
     GEMINI_MODEL,
     GEMINI_PERSONA,
     GOOGLE_ASK_COMMAND,
@@ -263,5 +264,10 @@ class Search(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     serpapi = SerpAPIClient(SERPAPI_API_KEY)
-    gemini = GeminiClient(GEMINI_API_KEY, GEMINI_MODEL, GEMINI_PERSONA)
+    gemini = GeminiClient(
+        GEMINI_API_KEY,
+        GEMINI_MODEL,
+        GEMINI_PERSONA,
+        GEMINI_MAX_OUTPUT_TOKENS,
+    )
     await bot.add_cog(Search(bot, serpapi, gemini))
