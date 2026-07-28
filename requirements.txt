@@ -1,6 +1,6 @@
 discord.py
 aiohttp
-google-genai
+google-genai>=2.14.0
 python-dotenv
 google-api-python-client
 google-auth-httplib2

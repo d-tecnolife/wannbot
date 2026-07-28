@@ -125,8 +125,8 @@ async def test_ai_overview_does_not_follow_up_without_token():
 
 @pytest.mark.asyncio
 async def test_gemini_answer_includes_configured_persona():
-    response = type("Response", (), {"text": "Persona answer"})()
-    generate_content = AsyncMock(return_value=response)
+    response = type("Response", (), {"output_text": "Persona answer"})()
+    create_interaction = AsyncMock(return_value=response)
     client = object.__new__(GeminiClient)
     client.model = "test-model"
     client.persona = "Speak like a friendly ship computer."
@@ -137,7 +137,13 @@ async def test_gemini_answer_includes_configured_persona():
             "aio": type(
                 "AsyncClient",
                 (),
-                {"models": type("Models", (), {"generate_content": generate_content})()},
+                {
+                    "interactions": type(
+                        "Interactions",
+                        (),
+                        {"create": create_interaction},
+                    )()
+                },
             )()
         },
     )()
@@ -145,6 +151,9 @@ async def test_gemini_answer_includes_configured_persona():
     answer = await client.answer("What is a pulsar?")
 
     assert answer == "Persona answer"
-    config = generate_content.await_args.kwargs["config"]
-    assert "Speak like a friendly ship computer." in config["system_instruction"]
-    assert "Do not claim to have searched the web" in config["system_instruction"]
+    request = create_interaction.await_args.kwargs
+    assert request["input"] == "What is a pulsar?"
+    assert request["store"] is False
+    assert request["generation_config"]["max_output_tokens"] == 1024
+    assert "Speak like a friendly ship computer." in request["system_instruction"]
+    assert "Do not claim to have searched the web" in request["system_instruction"]

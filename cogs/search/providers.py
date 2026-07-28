@@ -238,18 +238,35 @@ class GeminiClient:
             )
 
         try:
-            response = await self.client.aio.models.generate_content(
+            response = await self.client.aio.interactions.create(
                 model=self.model,
-                contents=query,
-                config={
-                    "system_instruction": system_instruction,
+                input=query,
+                system_instruction=system_instruction,
+                generation_config={
                     "max_output_tokens": 1024,
                 },
+                store=False,
             )
         except Exception as exc:
-            raise ProviderError("Gemini could not generate a fallback answer.") from exc
+            status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
+            if status == 401:
+                message = "Gemini rejected the configured authorization key."
+                code = "authentication"
+            elif status == 403:
+                message = "The Gemini key does not have permission to use this model."
+                code = "authentication"
+            elif status == 404:
+                message = f"Gemini model {self.model!r} is not available."
+                code = "configuration"
+            elif status == 429:
+                message = "The Gemini free-tier or rate limit has been reached."
+                code = "quota"
+            else:
+                message = "Gemini could not generate an answer."
+                code = "upstream"
+            raise ProviderError(message, code=code) from exc
 
-        text = getattr(response, "text", None)
+        text = getattr(response, "output_text", None)
         if not text or not text.strip():
             raise ProviderError("Gemini returned no usable answer.")
         return text.strip()
