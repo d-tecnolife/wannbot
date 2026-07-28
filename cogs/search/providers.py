@@ -220,14 +220,14 @@ class GeminiClient:
         persona: str = "",
         max_output_tokens: int = 8192,
         thinking_level: str = "medium",
-        target_words: int = 700,
+        max_words: int = 700,
         max_continuations: int = 0,
     ):
         self.model = model
         self.persona = persona
         self.max_output_tokens = max_output_tokens
         self.thinking_level = thinking_level
-        self.target_words = target_words
+        self.max_words = max_words
         self.max_continuations = max_continuations
         self.client = genai.Client(api_key=api_key) if api_key else None
 
@@ -243,8 +243,9 @@ class GeminiClient:
             "Answer the user's question directly and stay focused, but include enough "
             "detail to fully answer comparisons and calculations. Do not claim to have "
             "searched the web and do not invent citations. Finish every answer cleanly "
-            "and never intentionally stop mid-sentence. Keep the complete response at "
-            f"or below {self.target_words} words, using fewer when sufficient."
+            f"and never intentionally stop mid-sentence. Never exceed {self.max_words} "
+            "words. This is only a maximum, not a target: answer as briefly as appropriate "
+            "and never add padding to approach the limit."
         )
         if self.persona:
             system_instruction += (

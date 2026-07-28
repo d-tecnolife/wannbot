@@ -270,7 +270,11 @@ async def setup(bot: commands.Bot) -> None:
         GEMINI_PERSONA,
         getattr(bot_config, "GEMINI_MAX_OUTPUT_TOKENS", 8192),
         getattr(bot_config, "GEMINI_THINKING_LEVEL", "medium"),
-        getattr(bot_config, "GEMINI_TARGET_WORDS", 700),
+        getattr(
+            bot_config,
+            "GEMINI_MAX_WORDS",
+            getattr(bot_config, "GEMINI_TARGET_WORDS", 700),
+        ),
         getattr(bot_config, "GEMINI_MAX_CONTINUATIONS", 0),
     )
     await bot.add_cog(Search(bot, serpapi, gemini))

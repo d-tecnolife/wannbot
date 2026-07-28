@@ -137,7 +137,7 @@ async def test_gemini_answer_includes_configured_persona():
     client.persona = "Speak like a friendly ship computer."
     client.max_output_tokens = 8192
     client.thinking_level = "medium"
-    client.target_words = 700
+    client.max_words = 700
     client.max_continuations = 0
     client.client = type(
         "Client",
@@ -167,7 +167,8 @@ async def test_gemini_answer_includes_configured_persona():
     assert request["generation_config"]["thinking_level"] == "medium"
     assert "Speak like a friendly ship computer." in request["system_instruction"]
     assert "Do not claim to have searched the web" in request["system_instruction"]
-    assert "at or below 700 words" in request["system_instruction"]
+    assert "Never exceed 700 words" in request["system_instruction"]
+    assert "only a maximum, not a target" in request["system_instruction"]
 
 
 @pytest.mark.asyncio
@@ -183,7 +184,7 @@ async def test_gemini_reports_an_incomplete_single_answer():
     client.persona = ""
     client.max_output_tokens = 8192
     client.thinking_level = "medium"
-    client.target_words = 700
+    client.max_words = 700
     client.max_continuations = 0
     client.client = type(
         "Client",
