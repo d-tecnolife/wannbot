@@ -3,7 +3,8 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
-from config import BOT_PREFIX, DISCORD_BOT_TOKEN
+from bot_config import BOT_PREFIX
+from config import DISCORD_BOT_TOKEN
 
 intents = discord.Intents.default()
 intents.message_content = True

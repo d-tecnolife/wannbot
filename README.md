@@ -12,23 +12,25 @@ answer search commands.
   not return an overview, the bot links to the normal Google results instead.
 - `!askwann <query>` asks Gemini directly using the configured `GEMINI_PERSONA`.
 
-The prefix defaults to `!` and can be changed with `BOT_PREFIX`. Each search command
-has its own 10-second per-user cooldown. SafeSearch is enabled except in Discord
-channels explicitly marked NSFW.
+The prefix defaults to `!` and can be changed with `BOT_PREFIX` in `bot_config.py`.
+Each search command has its own 10-second per-user cooldown. SafeSearch is enabled
+except in Discord channels explicitly marked NSFW.
 
 ## Configuration
 
-Create a `.env` file or provide the following environment variables:
+Sensitive and deployment-specific values belong in `.env`:
 
 ```dotenv
 bot_token=your-discord-bot-token
 channel_id=your-flight-alert-channel-id
-BOT_PREFIX=!
 SERPAPI_API_KEY=your-serpapi-key
 GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL=gemini-3.5-flash
-GEMINI_PERSONA=Answer like a dry, sarcastic spaceship computer while staying helpful.
 ```
+
+Command names, aliases, prefix, Gemini model/persona, and Gmail query settings live
+in `bot_config.py`. Change `IMAGE_COMMAND`, `IMAGE_ALIASES`,
+`GOOGLE_ASK_COMMAND`, or `PERSONA_ASK_COMMAND` there to rename the commands.
+Restart the bot after changing the file.
 
 The Discord application must have the Message Content privileged intent enabled.
 The SerpAPI free plan currently includes 250 successful searches per month, shared
@@ -37,7 +39,7 @@ Overview normally uses one search but can use a second search when Google return
 lazy-loading token. The bot reports quota errors and never purchases more searches.
 
 Gemini is only used by `!askwann`. Free-tier Gemini content may be used by Google
-to improve its products. `GEMINI_PERSONA` is optional and changes the tone of
+to improve its products. `GEMINI_PERSONA` in `bot_config.py` changes the tone of
 `!askwann`; SerpAPI returns Google's existing AI Overview unchanged for `!ask`.
 
 ## Development

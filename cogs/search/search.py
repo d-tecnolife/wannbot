@@ -5,7 +5,15 @@ from urllib.parse import quote_plus
 import discord
 from discord.ext import commands
 
-from config import GEMINI_API_KEY, GEMINI_MODEL, GEMINI_PERSONA, SERPAPI_API_KEY
+from bot_config import (
+    GEMINI_MODEL,
+    GEMINI_PERSONA,
+    GOOGLE_ASK_COMMAND,
+    IMAGE_ALIASES,
+    IMAGE_COMMAND,
+    PERSONA_ASK_COMMAND,
+)
+from config import GEMINI_API_KEY, SERPAPI_API_KEY
 
 from .providers import (
     GeminiClient,
@@ -142,7 +150,7 @@ class Search(commands.Cog):
         await self.serpapi.close()
         await self.gemini.close()
 
-    @commands.command(name="im", aliases=["image"])
+    @commands.command(name=IMAGE_COMMAND, aliases=IMAGE_ALIASES)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def image_search(self, ctx: commands.Context, *, query: str) -> None:
         """Search Google Images and show a public, shared carousel."""
@@ -165,7 +173,7 @@ class Search(commands.Cog):
             mention_author=False,
         )
 
-    @commands.command(name="ask")
+    @commands.command(name=GOOGLE_ASK_COMMAND)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def ask(self, ctx: commands.Context, *, query: str) -> None:
         """Show Google's AI Overview."""
@@ -192,7 +200,7 @@ class Search(commands.Cog):
             mention_author=False,
         )
 
-    @commands.command(name="askwann")
+    @commands.command(name=PERSONA_ASK_COMMAND)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def ask_wann(self, ctx: commands.Context, *, query: str) -> None:
         """Ask Gemini using the configured wannbot persona."""

@@ -5,7 +5,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from config import GMAIL_SCOPES
+from bot_config import GMAIL_SCOPES
 
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 credentials_json = os.path.join(root_dir, "credentials.json")

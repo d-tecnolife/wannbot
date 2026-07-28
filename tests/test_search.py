@@ -3,6 +3,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from bot_config import (
+    GOOGLE_ASK_COMMAND,
+    IMAGE_ALIASES,
+    IMAGE_COMMAND,
+    PERSONA_ASK_COMMAND,
+)
 from cogs.search.providers import ImageResult, Reference
 from cogs.search.search import (
     ImageCarousel,
@@ -103,7 +109,9 @@ def test_single_result_disables_navigation():
 
 
 def test_ask_and_askwann_are_separate_commands():
-    assert Search.ask.name == "ask"
-    assert Search.ask_wann.name == "askwann"
+    assert Search.image_search.name == IMAGE_COMMAND
+    assert Search.image_search.aliases == IMAGE_ALIASES
+    assert Search.ask.name == GOOGLE_ASK_COMMAND
+    assert Search.ask_wann.name == PERSONA_ASK_COMMAND
     assert Search.ask._buckets._cooldown.per == 10
     assert Search.ask_wann._buckets._cooldown.per == 10

@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 
 from cogs.flight_alerts.auth_gmail import authenticate_gmail
-from config import GMAIL_QUERY
+from bot_config import GMAIL_QUERY
 
 # gmail = authenticate_gmail()
 
