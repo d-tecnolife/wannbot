@@ -3,12 +3,12 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 
-from config import DISCORD_BOT_TOKEN
+from config import BOT_PREFIX, DISCORD_BOT_TOKEN
 
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix="!", intents=intents)
+bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
 
 
 @bot.event
@@ -16,9 +16,9 @@ async def on_ready():
     print(f"[{datetime.now()}] Logged in as {bot.user}")
 
 
-# Load the flight alerts cog
 async def load_cogs():
     await bot.load_extension("cogs.flight_alerts.flight_alerts")
+    await bot.load_extension("cogs.search.search")
 
 
 async def main():
