@@ -125,12 +125,18 @@ async def test_ai_overview_does_not_follow_up_without_token():
 
 @pytest.mark.asyncio
 async def test_gemini_answer_includes_configured_persona():
-    response = type("Response", (), {"output_text": "Persona answer"})()
+    response = type(
+        "Response",
+        (),
+        {"output_text": "Persona answer", "status": "completed"},
+    )()
     create_interaction = AsyncMock(return_value=response)
     client = object.__new__(GeminiClient)
     client.model = "test-model"
     client.persona = "Speak like a friendly ship computer."
     client.max_output_tokens = 4096
+    client.thinking_level = "medium"
+    client.max_continuations = 1
     client.client = type(
         "Client",
         (),
@@ -156,5 +162,52 @@ async def test_gemini_answer_includes_configured_persona():
     assert request["input"] == "What is a pulsar?"
     assert request["store"] is False
     assert request["generation_config"]["max_output_tokens"] == 4096
+    assert request["generation_config"]["thinking_level"] == "medium"
     assert "Speak like a friendly ship computer." in request["system_instruction"]
     assert "Do not claim to have searched the web" in request["system_instruction"]
+
+
+@pytest.mark.asyncio
+async def test_gemini_continues_an_incomplete_answer_once():
+    first = type(
+        "Response",
+        (),
+        {"output_text": "First part.", "status": "incomplete"},
+    )()
+    second = type(
+        "Response",
+        (),
+        {"output_text": "Second part.", "status": "completed"},
+    )()
+    create_interaction = AsyncMock(side_effect=[first, second])
+    client = object.__new__(GeminiClient)
+    client.model = "test-model"
+    client.persona = ""
+    client.max_output_tokens = 4096
+    client.thinking_level = "medium"
+    client.max_continuations = 1
+    client.client = type(
+        "Client",
+        (),
+        {
+            "aio": type(
+                "AsyncClient",
+                (),
+                {
+                    "interactions": type(
+                        "Interactions",
+                        (),
+                        {"create": create_interaction},
+                    )()
+                },
+            )()
+        },
+    )()
+
+    answer = await client.answer("Compare two builds.")
+
+    assert answer == "First part.\n\nSecond part."
+    assert create_interaction.await_count == 2
+    continuation = create_interaction.await_args_list[1].kwargs["input"]
+    assert "Continue the answer" in continuation
+    assert "First part." in continuation

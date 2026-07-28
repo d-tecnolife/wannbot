@@ -31,8 +31,9 @@ GEMINI_API_KEY=your-gemini-api-key
 Command names, aliases, prefix, Gemini model/persona, output-token budget, and Gmail
 query settings live in `bot_config.py`. Change `IMAGE_COMMAND`, `IMAGE_ALIASES`,
 `GOOGLE_ASK_COMMAND`, or `PERSONA_ASK_COMMAND` there to rename the commands.
-`GEMINI_MAX_OUTPUT_TOKENS` controls the maximum persona-answer length. Restart the
-bot after changing the file.
+`GEMINI_MAX_OUTPUT_TOKENS`, `GEMINI_THINKING_LEVEL`, and
+`GEMINI_MAX_CONTINUATIONS` control persona-answer length and truncation handling.
+Restart the bot after changing the file.
 
 The Discord application must have the Message Content privileged intent enabled.
 The SerpAPI free plan currently includes 250 successful searches per month, shared

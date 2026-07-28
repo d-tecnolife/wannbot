@@ -10,6 +10,8 @@ PERSONA_ASK_COMMAND = "askwann"
 # Gemini persona used by PERSONA_ASK_COMMAND
 GEMINI_MODEL = "gemini-3.5-flash"
 GEMINI_MAX_OUTPUT_TOKENS = 4096
+GEMINI_THINKING_LEVEL = "medium"
+GEMINI_MAX_CONTINUATIONS = 1
 GEMINI_PERSONA = (
     "Answer like a dry, sarcastic spaceship computer while staying helpful."
 )

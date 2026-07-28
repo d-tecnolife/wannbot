@@ -5,8 +5,8 @@ from urllib.parse import quote_plus
 import discord
 from discord.ext import commands
 
+import bot_config
 from bot_config import (
-    GEMINI_MAX_OUTPUT_TOKENS,
     GEMINI_MODEL,
     GEMINI_PERSONA,
     GOOGLE_ASK_COMMAND,
@@ -268,6 +268,8 @@ async def setup(bot: commands.Bot) -> None:
         GEMINI_API_KEY,
         GEMINI_MODEL,
         GEMINI_PERSONA,
-        GEMINI_MAX_OUTPUT_TOKENS,
+        getattr(bot_config, "GEMINI_MAX_OUTPUT_TOKENS", 4096),
+        getattr(bot_config, "GEMINI_THINKING_LEVEL", "medium"),
+        getattr(bot_config, "GEMINI_MAX_CONTINUATIONS", 1),
     )
     await bot.add_cog(Search(bot, serpapi, gemini))

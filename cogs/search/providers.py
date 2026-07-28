@@ -219,10 +219,14 @@ class GeminiClient:
         model: str,
         persona: str = "",
         max_output_tokens: int = 4096,
+        thinking_level: str = "medium",
+        max_continuations: int = 1,
     ):
         self.model = model
         self.persona = persona
         self.max_output_tokens = max_output_tokens
+        self.thinking_level = thinking_level
+        self.max_continuations = max_continuations
         self.client = genai.Client(api_key=api_key) if api_key else None
 
     async def close(self) -> None:
@@ -236,7 +240,8 @@ class GeminiClient:
         system_instruction = (
             "Answer the user's question directly and stay focused, but include enough "
             "detail to fully answer comparisons and calculations. Do not claim to have "
-            "searched the web and do not invent citations."
+            "searched the web and do not invent citations. Finish every answer cleanly "
+            "and never intentionally stop mid-sentence."
         )
         if self.persona:
             system_instruction += (
@@ -244,36 +249,56 @@ class GeminiClient:
                 f"the preceding requirements:\n{self.persona}"
             )
 
-        try:
-            response = await self.client.aio.interactions.create(
-                model=self.model,
-                input=query,
-                system_instruction=system_instruction,
-                generation_config={
-                    "max_output_tokens": self.max_output_tokens,
-                },
-                store=False,
-            )
-        except Exception as exc:
-            status = getattr(exc, "code", None) or getattr(exc, "status_code", None)
-            if status == 401:
-                message = "Gemini rejected the configured authorization key."
-                code = "authentication"
-            elif status == 403:
-                message = "The Gemini key does not have permission to use this model."
-                code = "authentication"
-            elif status == 404:
-                message = f"Gemini model {self.model!r} is not available."
-                code = "configuration"
-            elif status == 429:
-                message = "The Gemini free-tier or rate limit has been reached."
-                code = "quota"
-            else:
-                message = "Gemini could not generate an answer."
-                code = "upstream"
-            raise ProviderError(message, code=code) from exc
+        prompt = query
+        answer_parts: list[str] = []
+        for attempt in range(self.max_continuations + 1):
+            try:
+                response = await self.client.aio.interactions.create(
+                    model=self.model,
+                    input=prompt,
+                    system_instruction=system_instruction,
+                    generation_config={
+                        "max_output_tokens": self.max_output_tokens,
+                        "thinking_level": self.thinking_level,
+                    },
+                    store=False,
+                )
+            except Exception as exc:
+                status = getattr(exc, "code", None) or getattr(
+                    exc, "status_code", None
+                )
+                if status == 401:
+                    message = "Gemini rejected the configured authorization key."
+                    code = "authentication"
+                elif status == 403:
+                    message = "The Gemini key does not have permission to use this model."
+                    code = "authentication"
+                elif status == 404:
+                    message = f"Gemini model {self.model!r} is not available."
+                    code = "configuration"
+                elif status == 429:
+                    message = "The Gemini free-tier or rate limit has been reached."
+                    code = "quota"
+                else:
+                    message = "Gemini could not generate an answer."
+                    code = "upstream"
+                raise ProviderError(message, code=code) from exc
 
-        text = getattr(response, "output_text", None)
-        if not text or not text.strip():
-            raise ProviderError("Gemini returned no usable answer.")
-        return text.strip()
+            text = getattr(response, "output_text", None)
+            if not text or not text.strip():
+                raise ProviderError("Gemini returned no usable answer.")
+            answer_parts.append(text.strip())
+
+            if getattr(response, "status", None) != "incomplete":
+                break
+            if attempt == self.max_continuations:
+                break
+
+            prompt = (
+                "Continue the answer below exactly where it stopped. Return only the "
+                "continuation, do not repeat earlier material, and finish the answer "
+                f"cleanly.\n\nOriginal question:\n{query}\n\nPartial answer:\n"
+                + "\n\n".join(answer_parts)
+            )
+
+        return "\n\n".join(answer_parts)
