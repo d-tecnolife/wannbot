@@ -16,6 +16,7 @@ from cogs.search.search import (
     answer_embed,
     channel_is_nsfw,
     format_sources,
+    split_message,
     truncate_answer,
 )
 
@@ -59,18 +60,25 @@ def test_sources_are_limited_and_markdown_safe():
     assert "Source 5" not in rendered
 
 
-def test_answer_embed_labels_persona_and_includes_sources():
+def test_answer_embed_includes_google_title_and_sources():
     embed = answer_embed(
         "question",
         "answer",
         references=(Reference("Example", "https://example.com"),),
     )
-    persona = answer_embed("question", "persona", persona=True)
 
     assert embed.title == "Google AI Overview"
     assert embed.fields[1].name == "Sources"
-    assert persona.title == "Whip and Nae Nae Bot"
-    assert len(persona.fields) == 1
+
+
+def test_split_message_preserves_text_within_discord_limit():
+    text = ("First paragraph. " * 140) + "\n\n" + ("Second paragraph. " * 140)
+
+    chunks = split_message(text)
+
+    assert len(chunks) > 1
+    assert all(0 < len(chunk) <= 2000 for chunk in chunks)
+    assert " ".join(" ".join(chunks).split()) == " ".join(text.split())
 
 
 @pytest.mark.asyncio

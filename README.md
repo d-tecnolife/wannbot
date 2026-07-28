@@ -10,7 +10,8 @@ answer search commands.
   after five minutes of inactivity.
 - `!ask <query>` shows Google's AI Overview and up to five sources. If Google does
   not return an overview, the bot links to the normal Google results instead.
-- `!askwann <query>` asks Gemini directly using the configured `GEMINI_PERSONA`.
+- `!askwann <query>` asks Gemini directly using the configured `GEMINI_PERSONA`
+  and sends the answer as normal bot text.
 
 The prefix defaults to `!` and can be changed with `BOT_PREFIX` in `bot_config.py`.
 Each search command has its own 10-second per-user cooldown. SafeSearch is enabled

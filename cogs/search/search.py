@@ -26,6 +26,7 @@ from .providers import (
 
 EMBED_BODY_LIMIT = 3500
 SOURCES_FIELD_LIMIT = 900
+MESSAGE_LIMIT = 2000
 
 
 def channel_is_nsfw(channel) -> bool:
@@ -50,6 +51,25 @@ def truncate_answer(text: str, limit: int = EMBED_BODY_LIMIT) -> str:
     return candidate.rstrip() + "…" + suffix
 
 
+def split_message(text: str, limit: int = MESSAGE_LIMIT) -> list[str]:
+    chunks: list[str] = []
+    remaining = text.strip()
+    while len(remaining) > limit:
+        candidate = remaining[:limit]
+        split_at = candidate.rfind("\n\n")
+        if split_at < limit // 2:
+            split_at = candidate.rfind("\n")
+        if split_at < limit // 2:
+            split_at = candidate.rfind(" ")
+        if split_at <= 0:
+            split_at = limit
+        chunks.append(remaining[:split_at].rstrip())
+        remaining = remaining[split_at:].lstrip()
+    if remaining:
+        chunks.append(remaining)
+    return chunks
+
+
 def format_sources(references: tuple[Reference, ...], limit: int = 5) -> str:
     lines: list[str] = []
     length = 0
@@ -68,11 +88,9 @@ def answer_embed(
     answer: str,
     *,
     references: tuple[Reference, ...] = (),
-    persona: bool = False,
 ) -> discord.Embed:
-    title = "Whip and Nae Nae Bot" if persona else "Google AI Overview"
     embed = discord.Embed(
-        title=title,
+        title="Google AI Overview",
         description=truncate_answer(answer),
         color=discord.Color.blue(),
     )
@@ -207,10 +225,8 @@ class Search(commands.Cog):
         async with ctx.typing():
             answer = await self.gemini.answer(query)
 
-        await ctx.reply(
-            embed=answer_embed(query, answer, persona=True),
-            mention_author=False,
-        )
+        for chunk in split_message(answer):
+            await ctx.send(chunk)
 
     async def cog_command_error(
         self, ctx: commands.Context, error: commands.CommandError
