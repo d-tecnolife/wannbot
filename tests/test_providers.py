@@ -3,7 +3,8 @@ from unittest.mock import AsyncMock
 import pytest
 
 from cogs.search.providers import (
-    GroqClient,
+    AIClient,
+    ChatProvider,
     ProviderError,
     SerpAPIClient,
     parse_ai_overview,
@@ -125,7 +126,7 @@ async def test_ai_overview_does_not_follow_up_without_token():
 
 
 @pytest.mark.asyncio
-async def test_groq_answer_includes_configured_persona():
+async def test_ai_answer_includes_configured_persona():
     response = AsyncMock()
     response.status = 200
     response.json.return_value = {
@@ -144,9 +145,10 @@ async def test_groq_answer_includes_configured_persona():
         return response
 
     session = type("Session", (), {"post": staticmethod(post)})()
-    client = object.__new__(GroqClient)
-    client.api_key = "test-key"
-    client.model = "test-model"
+    client = object.__new__(AIClient)
+    client.providers = (
+        ChatProvider("Test", "test-key", "https://ai.example/v1", "test-model"),
+    )
     client.persona = "Speak like a friendly ship computer."
     client.max_output_tokens = 2048
     client.max_words = 700
@@ -171,7 +173,7 @@ async def test_groq_answer_includes_configured_persona():
 
 
 @pytest.mark.asyncio
-async def test_groq_reports_an_incomplete_answer():
+async def test_ai_reports_an_incomplete_answer():
     response = AsyncMock()
     response.status = 200
     response.json.return_value = {
@@ -184,9 +186,10 @@ async def test_groq_reports_an_incomplete_answer():
     }
     response.__aenter__.return_value = response
     session = type("Session", (), {"post": lambda *args, **kwargs: response})()
-    client = object.__new__(GroqClient)
-    client.api_key = "test-key"
-    client.model = "test-model"
+    client = object.__new__(AIClient)
+    client.providers = (
+        ChatProvider("Test", "test-key", "https://ai.example/v1", "test-model"),
+    )
     client.persona = ""
     client.max_output_tokens = 2048
     client.max_words = 700
@@ -196,3 +199,43 @@ async def test_groq_reports_an_incomplete_answer():
         await client.answer("Compare two builds.")
 
     assert exc_info.value.code == "output_limit"
+
+
+@pytest.mark.asyncio
+async def test_ai_falls_back_to_second_provider_after_quota_error():
+    quota_response = AsyncMock()
+    quota_response.status = 429
+    quota_response.__aenter__.return_value = quota_response
+    success_response = AsyncMock()
+    success_response.status = 200
+    success_response.json.return_value = {
+        "choices": [
+            {"message": {"content": "Fallback answer"}, "finish_reason": "stop"}
+        ]
+    }
+    success_response.__aenter__.return_value = success_response
+    responses = iter((quota_response, success_response))
+    post_calls = []
+
+    def post(*args, **kwargs):
+        post_calls.append((args, kwargs))
+        return next(responses)
+
+    client = object.__new__(AIClient)
+    client.providers = (
+        ChatProvider("Primary", "primary-key", "https://primary.example/v1", "one"),
+        ChatProvider("Fallback", "fallback-key", "https://fallback.example/v1", "two"),
+    )
+    client.persona = ""
+    client.max_output_tokens = 2048
+    client.max_words = 700
+    client.session = type("Session", (), {"post": staticmethod(post)})()
+
+    answer = await client.answer("Try both.")
+
+    assert answer == "Fallback answer"
+    assert [call[0][0] for call in post_calls] == [
+        "https://primary.example/v1/chat/completions",
+        "https://fallback.example/v1/chat/completions",
+    ]
+    assert post_calls[1][1]["json"]["model"] == "two"

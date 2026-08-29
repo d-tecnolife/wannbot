@@ -10,7 +10,7 @@ answer search commands.
   after five minutes of inactivity.
 - `!ask <query>` shows Google's AI Overview and up to five sources. If Google does
   not return an overview, the bot links to the normal Google results instead.
-- `!askwann <query>` asks Groq directly using the configured `GROQ_PERSONA`
+- `!askwann <query>` asks the configured AI provider using `AI_PERSONA`
   and sends the answer as normal bot text.
 
 The prefix defaults to `!` and can be changed with `BOT_PREFIX` in `bot_config.py`.
@@ -25,17 +25,23 @@ Sensitive and deployment-specific values belong in `.env`:
 bot_token=your-discord-bot-token
 channel_id=your-flight-alert-channel-id
 SERPAPI_API_KEY=your-serpapi-key
-GROQ_API_KEY=your-groq-api-key
+AI_API_KEY=your-openrouter-api-key
+AI_BASE_URL=https://openrouter.ai/api/v1
+AI_MODEL=cognitivecomputations/dolphin3.0-mistral-24b:free
+
+# Optional quota fallback
+AI_FALLBACK_API_KEY=your-groq-api-key
+AI_FALLBACK_BASE_URL=https://api.groq.com/openai/v1
+AI_FALLBACK_MODEL=qwen/qwen3.8-27b
 ```
 
-Command names, aliases, prefix, Groq model/persona, output-token budget, and Gmail
-query settings live in `bot_config.py`. Change `IMAGE_COMMAND`, `IMAGE_ALIASES`,
+Command names, aliases, prefix, persona, output-token budget, and Gmail query
+settings live in `bot_config.py`. Change `IMAGE_COMMAND`, `IMAGE_ALIASES`,
 `GOOGLE_ASK_COMMAND`, or `PERSONA_ASK_COMMAND` there to rename the commands.
-`GROQ_MAX_OUTPUT_TOKENS` and `GROQ_MAX_WORDS` control persona-answer length. The
-defaults use one Groq request to `openai/gpt-oss-120b`, with a 2,048-token ceiling
-and a 700-word maximum. The word maximum is not a target; Groq is instructed to
-answer as briefly as appropriate without padding. Restart the bot after changing
-the file.
+`AI_MAX_OUTPUT_TOKENS` and `AI_MAX_WORDS` control persona-answer length. The
+defaults use a 2,048-token ceiling and a 700-word maximum. The word maximum is not
+a target; the model is instructed to answer as briefly as appropriate without
+padding. Restart the bot after changing configuration.
 
 The Discord application must have the Message Content privileged intent enabled.
 The SerpAPI free plan currently includes 250 successful searches per month, shared
@@ -43,9 +49,11 @@ by image and AI Overview requests. An image command normally uses one search. An
 Overview normally uses one search but can use a second search when Google returns a
 lazy-loading token. The bot reports quota errors and never purchases more searches.
 
-Groq is only used by `!askwann`; that command sends the user's query to Groq for
-processing. `GROQ_PERSONA` in `bot_config.py` changes the tone of `!askwann`;
-SerpAPI returns Google's existing AI Overview unchanged for `!ask`.
+`!askwann` sends the user's query to OpenRouter. When OpenRouter returns HTTP 429,
+the bot retries once through the optional Groq fallback. Free-model limits are
+shared across OpenRouter models, so changing the OpenRouter model does not add more
+free requests. `AI_PERSONA` in `bot_config.py` changes the command's tone; SerpAPI
+returns Google's existing AI Overview unchanged for `!ask`.
 
 ## Development
 

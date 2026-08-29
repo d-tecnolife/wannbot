@@ -8,7 +8,6 @@ import aiohttp
 
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
-GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 
 class ProviderError(RuntimeError):
@@ -38,6 +37,18 @@ class Reference:
 class AIOverview:
     text: str
     references: tuple[Reference, ...]
+
+
+@dataclass(frozen=True)
+class ChatProvider:
+    name: str
+    api_key: str | None
+    base_url: str
+    model: str
+
+    @property
+    def endpoint(self) -> str:
+        return f"{self.base_url.rstrip('/')}/chat/completions"
 
 
 def _is_http_url(value: Any) -> bool:
@@ -212,17 +223,15 @@ class SerpAPIClient:
         return parse_ai_overview(followup)
 
 
-class GroqClient:
+class AIClient:
     def __init__(
         self,
-        api_key: str | None,
-        model: str,
+        providers: tuple[ChatProvider, ...],
         persona: str = "",
         max_output_tokens: int = 2048,
         max_words: int = 700,
     ):
-        self.api_key = api_key
-        self.model = model
+        self.providers = providers
         self.persona = persona
         self.max_output_tokens = max_output_tokens
         self.max_words = max_words
@@ -233,8 +242,9 @@ class GroqClient:
         await self.session.close()
 
     async def answer(self, query: str) -> str:
-        if not self.api_key:
-            raise ProviderError("Groq is not configured.", code="configuration")
+        providers = tuple(provider for provider in self.providers if provider.api_key)
+        if not providers:
+            raise ProviderError("The AI provider is not configured.", code="configuration")
 
         system_instruction = (
             "Answer the user's question directly and stay focused, but include enough "
@@ -250,8 +260,20 @@ class GroqClient:
                 f"the preceding requirements:\n{self.persona}"
             )
 
+        for index, provider in enumerate(providers):
+            try:
+                return await self._answer(provider, query, system_instruction)
+            except ProviderError as exc:
+                if exc.code != "quota" or index == len(providers) - 1:
+                    raise
+
+        raise ProviderError("No AI provider could generate an answer.")
+
+    async def _answer(
+        self, provider: ChatProvider, query: str, system_instruction: str
+    ) -> str:
         payload = {
-            "model": self.model,
+            "model": provider.model,
             "messages": [
                 {"role": "system", "content": system_instruction},
                 {"role": "user", "content": query},
@@ -259,48 +281,51 @@ class GroqClient:
             "max_completion_tokens": self.max_output_tokens,
         }
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {provider.api_key}",
             "Content-Type": "application/json",
         }
         try:
             async with self.session.post(
-                GROQ_ENDPOINT, json=payload, headers=headers
+                provider.endpoint, json=payload, headers=headers
             ) as response:
                 if response.status in {401, 403}:
                     raise ProviderError(
-                        "Groq rejected the configured API key.", code="authentication"
+                        "The AI provider rejected the configured API key.",
+                        code="authentication",
                     )
                 if response.status == 404:
                     raise ProviderError(
-                        f"Groq model {self.model!r} is not available.",
+                        f"AI model {provider.model!r} is not available from {provider.name}.",
                         code="configuration",
                     )
                 if response.status == 429:
                     raise ProviderError(
-                        "The Groq free-tier or rate limit has been reached.", code="quota"
+                        "The AI provider's free-tier or rate limit has been reached.",
+                        code="quota",
                     )
                 if response.status >= 400:
                     raise ProviderError(
-                        f"Groq returned HTTP {response.status}.", code="upstream"
+                        f"The AI provider returned HTTP {response.status}.",
+                        code="upstream",
                     )
                 result = await response.json(content_type=None)
         except TimeoutError as exc:
-            raise ProviderError("Groq timed out.", code="timeout") from exc
+            raise ProviderError("The AI provider timed out.", code="timeout") from exc
         except aiohttp.ClientError as exc:
-            raise ProviderError("Could not reach Groq.", code="network") from exc
+            raise ProviderError("Could not reach the AI provider.", code="network") from exc
         except (TypeError, ValueError) as exc:
-            raise ProviderError("Groq returned invalid JSON.") from exc
+            raise ProviderError("The AI provider returned invalid JSON.") from exc
 
         try:
             choice = result["choices"][0]
             text = choice["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
-            raise ProviderError("Groq returned an invalid response.") from exc
+            raise ProviderError("The AI provider returned an invalid response.") from exc
         if not isinstance(text, str) or not text.strip():
-            raise ProviderError("Groq returned no usable answer.")
+            raise ProviderError("The AI provider returned no usable answer.")
         if choice.get("finish_reason") == "length":
             raise ProviderError(
-                "Groq hit its output limit before finishing. Try a narrower question.",
+                "The AI model hit its output limit before finishing. Try a narrower question.",
                 code="output_limit",
             )
         return text.strip()

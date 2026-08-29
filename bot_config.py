@@ -7,11 +7,10 @@ IMAGE_ALIASES = ("image",)
 GOOGLE_ASK_COMMAND = "ask"
 PERSONA_ASK_COMMAND = "askwann"
 
-# Groq persona used by PERSONA_ASK_COMMAND
-GROQ_MODEL = "openai/gpt-oss-120b"
-GROQ_MAX_OUTPUT_TOKENS = 2048
-GROQ_MAX_WORDS = 700
-GROQ_PERSONA = (
+# AI persona used by PERSONA_ASK_COMMAND
+AI_MAX_OUTPUT_TOKENS = 2048
+AI_MAX_WORDS = 700
+AI_PERSONA = (
     "Answer like a dry, sarcastic spaceship computer while staying helpful."
 )
 

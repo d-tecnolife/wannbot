@@ -7,17 +7,25 @@ from discord.ext import commands
 
 import bot_config
 from bot_config import (
-    GROQ_MODEL,
-    GROQ_PERSONA,
+    AI_PERSONA,
     GOOGLE_ASK_COMMAND,
     IMAGE_ALIASES,
     IMAGE_COMMAND,
     PERSONA_ASK_COMMAND,
 )
-from config import GROQ_API_KEY, SERPAPI_API_KEY
+from config import (
+    AI_API_KEY,
+    AI_BASE_URL,
+    AI_FALLBACK_API_KEY,
+    AI_FALLBACK_BASE_URL,
+    AI_FALLBACK_MODEL,
+    AI_MODEL,
+    SERPAPI_API_KEY,
+)
 
 from .providers import (
-    GroqClient,
+    AIClient,
+    ChatProvider,
     ImageResult,
     ProviderError,
     Reference,
@@ -159,15 +167,15 @@ class Search(commands.Cog):
         self,
         bot: commands.Bot,
         serpapi: SerpAPIClient,
-        groq: GroqClient,
+        ai: AIClient,
     ):
         self.bot = bot
         self.serpapi = serpapi
-        self.groq = groq
+        self.ai = ai
 
     async def cog_unload(self) -> None:
         await self.serpapi.close()
-        await self.groq.close()
+        await self.ai.close()
 
     @commands.command(name=IMAGE_COMMAND, aliases=IMAGE_ALIASES)
     @commands.cooldown(1, 10, commands.BucketType.user)
@@ -222,9 +230,9 @@ class Search(commands.Cog):
     @commands.command(name=PERSONA_ASK_COMMAND)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def ask_wann(self, ctx: commands.Context, *, query: str) -> None:
-        """Ask Groq using the configured wannbot persona."""
+        """Ask the configured AI provider using the wannbot persona."""
         async with ctx.typing():
-            answer = await self.groq.answer(query)
+            answer = await self.ai.answer(query)
 
         for chunk in split_message(answer):
             await ctx.send(chunk)
@@ -264,11 +272,18 @@ class Search(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     serpapi = SerpAPIClient(SERPAPI_API_KEY)
-    groq = GroqClient(
-        GROQ_API_KEY,
-        GROQ_MODEL,
-        GROQ_PERSONA,
-        getattr(bot_config, "GROQ_MAX_OUTPUT_TOKENS", 2048),
-        getattr(bot_config, "GROQ_MAX_WORDS", 700),
+    ai = AIClient(
+        (
+            ChatProvider("OpenRouter", AI_API_KEY, AI_BASE_URL, AI_MODEL),
+            ChatProvider(
+                "Groq",
+                AI_FALLBACK_API_KEY,
+                AI_FALLBACK_BASE_URL,
+                AI_FALLBACK_MODEL,
+            ),
+        ),
+        AI_PERSONA,
+        getattr(bot_config, "AI_MAX_OUTPUT_TOKENS", 2048),
+        getattr(bot_config, "AI_MAX_WORDS", 700),
     )
-    await bot.add_cog(Search(bot, serpapi, groq))
+    await bot.add_cog(Search(bot, serpapi, ai))
