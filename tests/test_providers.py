@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from cogs.search.providers import (
-    GeminiClient,
+    GroqClient,
     ProviderError,
     SerpAPIClient,
     parse_ai_overview,
@@ -125,87 +125,74 @@ async def test_ai_overview_does_not_follow_up_without_token():
 
 
 @pytest.mark.asyncio
-async def test_gemini_answer_includes_configured_persona():
-    response = type(
-        "Response",
-        (),
-        {"output_text": "Persona answer", "status": "completed"},
-    )()
-    create_interaction = AsyncMock(return_value=response)
-    client = object.__new__(GeminiClient)
+async def test_groq_answer_includes_configured_persona():
+    response = AsyncMock()
+    response.status = 200
+    response.json.return_value = {
+        "choices": [
+            {
+                "message": {"content": "Persona answer"},
+                "finish_reason": "stop",
+            }
+        ]
+    }
+    response.__aenter__.return_value = response
+    post_calls = []
+
+    def post(*args, **kwargs):
+        post_calls.append((args, kwargs))
+        return response
+
+    session = type("Session", (), {"post": staticmethod(post)})()
+    client = object.__new__(GroqClient)
+    client.api_key = "test-key"
     client.model = "test-model"
     client.persona = "Speak like a friendly ship computer."
-    client.max_output_tokens = 8192
-    client.thinking_level = "medium"
+    client.max_output_tokens = 2048
     client.max_words = 700
-    client.max_continuations = 0
-    client.client = type(
-        "Client",
-        (),
-        {
-            "aio": type(
-                "AsyncClient",
-                (),
-                {
-                    "interactions": type(
-                        "Interactions",
-                        (),
-                        {"create": create_interaction},
-                    )()
-                },
-            )()
-        },
-    )()
+    client.session = session
 
     answer = await client.answer("What is a pulsar?")
 
     assert answer == "Persona answer"
-    request = create_interaction.await_args.kwargs
-    assert request["input"] == "What is a pulsar?"
-    assert request["store"] is False
-    assert request["generation_config"]["max_output_tokens"] == 8192
-    assert request["generation_config"]["thinking_level"] == "medium"
-    assert "Speak like a friendly ship computer." in request["system_instruction"]
-    assert "Do not claim to have searched the web" in request["system_instruction"]
-    assert "Never exceed 700 words" in request["system_instruction"]
-    assert "only a maximum, not a target" in request["system_instruction"]
+    assert len(post_calls) == 1
+    payload = post_calls[0][1]["json"]
+    assert payload["model"] == "test-model"
+    assert payload["max_completion_tokens"] == 2048
+    assert payload["messages"][1] == {
+        "role": "user",
+        "content": "What is a pulsar?",
+    }
+    system_instruction = payload["messages"][0]["content"]
+    assert "Speak like a friendly ship computer." in system_instruction
+    assert "Do not claim to have searched the web" in system_instruction
+    assert "Never exceed 700 words" in system_instruction
+    assert "only a maximum, not a target" in system_instruction
 
 
 @pytest.mark.asyncio
-async def test_gemini_reports_an_incomplete_single_answer():
-    first = type(
-        "Response",
-        (),
-        {"output_text": "First part.", "status": "incomplete"},
-    )()
-    create_interaction = AsyncMock(return_value=first)
-    client = object.__new__(GeminiClient)
+async def test_groq_reports_an_incomplete_answer():
+    response = AsyncMock()
+    response.status = 200
+    response.json.return_value = {
+        "choices": [
+            {
+                "message": {"content": "First part."},
+                "finish_reason": "length",
+            }
+        ]
+    }
+    response.__aenter__.return_value = response
+    session = type("Session", (), {"post": lambda *args, **kwargs: response})()
+    client = object.__new__(GroqClient)
+    client.api_key = "test-key"
     client.model = "test-model"
     client.persona = ""
-    client.max_output_tokens = 8192
-    client.thinking_level = "medium"
+    client.max_output_tokens = 2048
     client.max_words = 700
-    client.max_continuations = 0
-    client.client = type(
-        "Client",
-        (),
-        {
-            "aio": type(
-                "AsyncClient",
-                (),
-                {
-                    "interactions": type(
-                        "Interactions",
-                        (),
-                        {"create": create_interaction},
-                    )()
-                },
-            )()
-        },
-    )()
+    client.session = session
 
     with pytest.raises(ProviderError) as exc_info:
         await client.answer("Compare two builds.")
 
     assert exc_info.value.code == "output_limit"
-    assert create_interaction.await_count == 1

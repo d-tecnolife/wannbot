@@ -7,17 +7,17 @@ from discord.ext import commands
 
 import bot_config
 from bot_config import (
-    GEMINI_MODEL,
-    GEMINI_PERSONA,
+    GROQ_MODEL,
+    GROQ_PERSONA,
     GOOGLE_ASK_COMMAND,
     IMAGE_ALIASES,
     IMAGE_COMMAND,
     PERSONA_ASK_COMMAND,
 )
-from config import GEMINI_API_KEY, SERPAPI_API_KEY
+from config import GROQ_API_KEY, SERPAPI_API_KEY
 
 from .providers import (
-    GeminiClient,
+    GroqClient,
     ImageResult,
     ProviderError,
     Reference,
@@ -159,15 +159,15 @@ class Search(commands.Cog):
         self,
         bot: commands.Bot,
         serpapi: SerpAPIClient,
-        gemini: GeminiClient,
+        groq: GroqClient,
     ):
         self.bot = bot
         self.serpapi = serpapi
-        self.gemini = gemini
+        self.groq = groq
 
     async def cog_unload(self) -> None:
         await self.serpapi.close()
-        await self.gemini.close()
+        await self.groq.close()
 
     @commands.command(name=IMAGE_COMMAND, aliases=IMAGE_ALIASES)
     @commands.cooldown(1, 10, commands.BucketType.user)
@@ -222,9 +222,9 @@ class Search(commands.Cog):
     @commands.command(name=PERSONA_ASK_COMMAND)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def ask_wann(self, ctx: commands.Context, *, query: str) -> None:
-        """Ask Gemini using the configured wannbot persona."""
+        """Ask Groq using the configured wannbot persona."""
         async with ctx.typing():
-            answer = await self.gemini.answer(query)
+            answer = await self.groq.answer(query)
 
         for chunk in split_message(answer):
             await ctx.send(chunk)
@@ -264,17 +264,11 @@ class Search(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     serpapi = SerpAPIClient(SERPAPI_API_KEY)
-    gemini = GeminiClient(
-        GEMINI_API_KEY,
-        GEMINI_MODEL,
-        GEMINI_PERSONA,
-        getattr(bot_config, "GEMINI_MAX_OUTPUT_TOKENS", 8192),
-        getattr(bot_config, "GEMINI_THINKING_LEVEL", "medium"),
-        getattr(
-            bot_config,
-            "GEMINI_MAX_WORDS",
-            getattr(bot_config, "GEMINI_TARGET_WORDS", 700),
-        ),
-        getattr(bot_config, "GEMINI_MAX_CONTINUATIONS", 0),
+    groq = GroqClient(
+        GROQ_API_KEY,
+        GROQ_MODEL,
+        GROQ_PERSONA,
+        getattr(bot_config, "GROQ_MAX_OUTPUT_TOKENS", 2048),
+        getattr(bot_config, "GROQ_MAX_WORDS", 700),
     )
-    await bot.add_cog(Search(bot, serpapi, gemini))
+    await bot.add_cog(Search(bot, serpapi, groq))

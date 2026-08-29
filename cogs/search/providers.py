@@ -5,10 +5,10 @@ from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
-from google import genai
 
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
 
 
 class ProviderError(RuntimeError):
@@ -212,32 +212,29 @@ class SerpAPIClient:
         return parse_ai_overview(followup)
 
 
-class GeminiClient:
+class GroqClient:
     def __init__(
         self,
         api_key: str | None,
         model: str,
         persona: str = "",
-        max_output_tokens: int = 8192,
-        thinking_level: str = "medium",
+        max_output_tokens: int = 2048,
         max_words: int = 700,
-        max_continuations: int = 0,
     ):
+        self.api_key = api_key
         self.model = model
         self.persona = persona
         self.max_output_tokens = max_output_tokens
-        self.thinking_level = thinking_level
         self.max_words = max_words
-        self.max_continuations = max_continuations
-        self.client = genai.Client(api_key=api_key) if api_key else None
+        timeout = aiohttp.ClientTimeout(total=60)
+        self.session = aiohttp.ClientSession(timeout=timeout)
 
     async def close(self) -> None:
-        if self.client:
-            await self.client.aio.aclose()
+        await self.session.close()
 
     async def answer(self, query: str) -> str:
-        if not self.client:
-            raise ProviderError("Gemini fallback is not configured.", code="configuration")
+        if not self.api_key:
+            raise ProviderError("Groq is not configured.", code="configuration")
 
         system_instruction = (
             "Answer the user's question directly and stay focused, but include enough "
@@ -253,61 +250,57 @@ class GeminiClient:
                 f"the preceding requirements:\n{self.persona}"
             )
 
-        prompt = query
-        answer = ""
-        for attempt in range(self.max_continuations + 1):
-            try:
-                response = await self.client.aio.interactions.create(
-                    model=self.model,
-                    input=prompt,
-                    system_instruction=system_instruction,
-                    generation_config={
-                        "max_output_tokens": self.max_output_tokens,
-                        "thinking_level": self.thinking_level,
-                    },
-                    store=False,
-                )
-            except Exception as exc:
-                status = getattr(exc, "code", None) or getattr(
-                    exc, "status_code", None
-                )
-                if status == 401:
-                    message = "Gemini rejected the configured authorization key."
-                    code = "authentication"
-                elif status == 403:
-                    message = "The Gemini key does not have permission to use this model."
-                    code = "authentication"
-                elif status == 404:
-                    message = f"Gemini model {self.model!r} is not available."
-                    code = "configuration"
-                elif status == 429:
-                    message = "The Gemini free-tier or rate limit has been reached."
-                    code = "quota"
-                else:
-                    message = "Gemini could not generate an answer."
-                    code = "upstream"
-                raise ProviderError(message, code=code) from exc
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_instruction},
+                {"role": "user", "content": query},
+            ],
+            "max_completion_tokens": self.max_output_tokens,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        try:
+            async with self.session.post(
+                GROQ_ENDPOINT, json=payload, headers=headers
+            ) as response:
+                if response.status in {401, 403}:
+                    raise ProviderError(
+                        "Groq rejected the configured API key.", code="authentication"
+                    )
+                if response.status == 404:
+                    raise ProviderError(
+                        f"Groq model {self.model!r} is not available.",
+                        code="configuration",
+                    )
+                if response.status == 429:
+                    raise ProviderError(
+                        "The Groq free-tier or rate limit has been reached.", code="quota"
+                    )
+                if response.status >= 400:
+                    raise ProviderError(
+                        f"Groq returned HTTP {response.status}.", code="upstream"
+                    )
+                result = await response.json(content_type=None)
+        except TimeoutError as exc:
+            raise ProviderError("Groq timed out.", code="timeout") from exc
+        except aiohttp.ClientError as exc:
+            raise ProviderError("Could not reach Groq.", code="network") from exc
+        except (TypeError, ValueError) as exc:
+            raise ProviderError("Groq returned invalid JSON.") from exc
 
-            text = getattr(response, "output_text", None)
-            if not text or not text.strip():
-                raise ProviderError("Gemini returned no usable answer.")
-            answer = text.strip()
-
-            if getattr(response, "status", None) != "incomplete":
-                break
-            if attempt == self.max_continuations:
-                raise ProviderError(
-                    "Gemini hit its output limit before finishing. Try a narrower question.",
-                    code="output_limit",
-                )
-
-            target_words = max(300, 700 // (2**attempt))
-            prompt = (
-                "The draft answer below was cut off. Write a complete, standalone "
-                "replacement answer that makes sense without seeing the draft. Include "
-                f"all necessary context in at most {target_words} words, and do not "
-                "mention this retry or the incomplete draft.\n\n"
-                f"Original question:\n{query}\n\nIncomplete draft:\n{answer}"
+        try:
+            choice = result["choices"][0]
+            text = choice["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderError("Groq returned an invalid response.") from exc
+        if not isinstance(text, str) or not text.strip():
+            raise ProviderError("Groq returned no usable answer.")
+        if choice.get("finish_reason") == "length":
+            raise ProviderError(
+                "Groq hit its output limit before finishing. Try a narrower question.",
+                code="output_limit",
             )
-
-        return answer
+        return text.strip()
