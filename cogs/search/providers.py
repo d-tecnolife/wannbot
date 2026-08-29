@@ -264,7 +264,9 @@ class AIClient:
             try:
                 return await self._answer(provider, query, system_instruction)
             except ProviderError as exc:
-                if exc.code != "quota" or index == len(providers) - 1:
+                if exc.code not in {"configuration", "quota"} or index == len(
+                    providers
+                ) - 1:
                     raise
 
         raise ProviderError("No AI provider could generate an answer.")

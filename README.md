@@ -27,7 +27,7 @@ channel_id=your-flight-alert-channel-id
 SERPAPI_API_KEY=your-serpapi-key
 AI_API_KEY=your-openrouter-api-key
 AI_BASE_URL=https://openrouter.ai/api/v1
-AI_MODEL=cognitivecomputations/dolphin3.0-mistral-24b:free
+AI_MODEL=dots-studio/dots-3-note-preview:free
 
 # Optional quota fallback
 AI_FALLBACK_API_KEY=your-groq-api-key
@@ -49,11 +49,11 @@ by image and AI Overview requests. An image command normally uses one search. An
 Overview normally uses one search but can use a second search when Google returns a
 lazy-loading token. The bot reports quota errors and never purchases more searches.
 
-`!askwann` sends the user's query to OpenRouter. When OpenRouter returns HTTP 429,
-the bot retries once through the optional Groq fallback. Free-model limits are
-shared across OpenRouter models, so changing the OpenRouter model does not add more
-free requests. `AI_PERSONA` in `bot_config.py` changes the command's tone; SerpAPI
-returns Google's existing AI Overview unchanged for `!ask`.
+`!askwann` sends the user's query to OpenRouter. When OpenRouter returns HTTP 404
+or 429, the bot retries once through the optional Groq fallback. Free-model limits
+are shared across OpenRouter models, so changing the OpenRouter model does not add
+more free requests. `AI_PERSONA` in `bot_config.py` changes the command's tone;
+SerpAPI returns Google's existing AI Overview unchanged for `!ask`.
 
 ## Development
 

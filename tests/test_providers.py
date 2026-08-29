@@ -239,3 +239,33 @@ async def test_ai_falls_back_to_second_provider_after_quota_error():
         "https://fallback.example/v1/chat/completions",
     ]
     assert post_calls[1][1]["json"]["model"] == "two"
+
+
+@pytest.mark.asyncio
+async def test_ai_falls_back_when_primary_model_is_unavailable():
+    unavailable_response = AsyncMock()
+    unavailable_response.status = 404
+    unavailable_response.__aenter__.return_value = unavailable_response
+    success_response = AsyncMock()
+    success_response.status = 200
+    success_response.json.return_value = {
+        "choices": [
+            {"message": {"content": "Fallback answer"}, "finish_reason": "stop"}
+        ]
+    }
+    success_response.__aenter__.return_value = success_response
+    responses = iter((unavailable_response, success_response))
+
+    client = object.__new__(AIClient)
+    client.providers = (
+        ChatProvider("Primary", "primary-key", "https://primary.example/v1", "gone"),
+        ChatProvider("Fallback", "fallback-key", "https://fallback.example/v1", "live"),
+    )
+    client.persona = ""
+    client.max_output_tokens = 2048
+    client.max_words = 700
+    client.session = type(
+        "Session", (), {"post": lambda *args, **kwargs: next(responses)}
+    )()
+
+    assert await client.answer("Try both.") == "Fallback answer"
