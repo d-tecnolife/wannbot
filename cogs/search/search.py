@@ -7,7 +7,6 @@ from discord.ext import commands
 
 import bot_config
 from bot_config import (
-    AI_PERSONA,
     GOOGLE_ASK_COMMAND,
     IMAGE_ALIASES,
     IMAGE_COMMAND,
@@ -272,6 +271,15 @@ class Search(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     serpapi = SerpAPIClient(SERPAPI_API_KEY)
+    persona = getattr(
+        bot_config,
+        "AI_PERSONA",
+        getattr(
+            bot_config,
+            "GROQ_PERSONA",
+            getattr(bot_config, "GEMINI_PERSONA", ""),
+        ),
+    )
     ai = AIClient(
         (
             ChatProvider("OpenRouter", AI_API_KEY, AI_BASE_URL, AI_MODEL),
@@ -282,8 +290,24 @@ async def setup(bot: commands.Bot) -> None:
                 AI_FALLBACK_MODEL,
             ),
         ),
-        AI_PERSONA,
-        getattr(bot_config, "AI_MAX_OUTPUT_TOKENS", 2048),
-        getattr(bot_config, "AI_MAX_WORDS", 700),
+        persona,
+        getattr(
+            bot_config,
+            "AI_MAX_OUTPUT_TOKENS",
+            getattr(
+                bot_config,
+                "GROQ_MAX_OUTPUT_TOKENS",
+                getattr(bot_config, "GEMINI_MAX_OUTPUT_TOKENS", 2048),
+            ),
+        ),
+        getattr(
+            bot_config,
+            "AI_MAX_WORDS",
+            getattr(
+                bot_config,
+                "GROQ_MAX_WORDS",
+                getattr(bot_config, "GEMINI_MAX_WORDS", 700),
+            ),
+        ),
     )
     await bot.add_cog(Search(bot, serpapi, ai))
