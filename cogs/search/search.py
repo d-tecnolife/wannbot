@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from urllib.parse import quote_plus
 
 import discord
@@ -35,6 +36,7 @@ from .providers import (
 EMBED_BODY_LIMIT = 3500
 SOURCES_FIELD_LIMIT = 900
 MESSAGE_LIMIT = 2000
+logger = logging.getLogger("wannbot.search")
 
 
 def channel_is_nsfw(channel) -> bool:
@@ -241,6 +243,11 @@ class Search(commands.Cog):
     ) -> None:
         error = getattr(error, "original", error)
         if isinstance(error, commands.MissingRequiredArgument):
+            logger.warning(
+                "Command missing query: command=%s message=%s",
+                ctx.command,
+                ctx.message.id,
+            )
             prefix = ctx.clean_prefix
             await ctx.reply(
                 f"Please include a query. Example: `{prefix}{ctx.command.name} red pandas`",
@@ -248,6 +255,12 @@ class Search(commands.Cog):
             )
             return
         if isinstance(error, commands.CommandOnCooldown):
+            logger.info(
+                "Command on cooldown: command=%s message=%s retry_after=%.1f",
+                ctx.command,
+                ctx.message.id,
+                error.retry_after,
+            )
             await ctx.reply(
                 f"That command is cooling down. Try again in {error.retry_after:.1f}s.",
                 mention_author=False,
@@ -255,6 +268,13 @@ class Search(commands.Cog):
             )
             return
         if isinstance(error, ProviderError):
+            logger.error(
+                "Provider failure: command=%s message=%s code=%s error=%s",
+                ctx.command,
+                ctx.message.id,
+                error.code,
+                error,
+            )
             query = str(ctx.kwargs.get("query", "")).strip()
             search_url = (
                 f"https://www.google.com/search?q={quote_plus(query)}"
@@ -266,6 +286,12 @@ class Search(commands.Cog):
                 message += f"\n[Search Google instead]({search_url})"
             await ctx.reply(message, mention_author=False)
             return
+        logger.error(
+            "Unexpected search command failure: command=%s message=%s",
+            ctx.command,
+            ctx.message.id,
+            exc_info=(type(error), error, error.__traceback__),
+        )
         raise error
 
 
@@ -311,3 +337,10 @@ async def setup(bot: commands.Bot) -> None:
         ),
     )
     await bot.add_cog(Search(bot, serpapi, ai))
+    logger.info(
+        "Search cog ready: commands=%s serpapi_configured=%s ai_providers=%s",
+        ",".join((IMAGE_COMMAND, GOOGLE_ASK_COMMAND, PERSONA_ASK_COMMAND)),
+        bool(SERPAPI_API_KEY),
+        ",".join(provider.name for provider in ai.providers if provider.api_key)
+        or "none",
+    )

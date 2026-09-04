@@ -1,4 +1,5 @@
-from datetime import datetime
+import asyncio
+import logging
 
 import discord
 from discord.ext import commands, tasks
@@ -6,6 +7,8 @@ from discord.ext import commands, tasks
 from config import ALERT_CHANNEL_ID
 
 from . import gmail_handler
+
+logger = logging.getLogger("wannbot.flight_alerts")
 
 
 class FlightAlerts(commands.Cog):
@@ -15,23 +18,22 @@ class FlightAlerts(commands.Cog):
 
     @tasks.loop(minutes=30)
     async def check_flights(self):
-        print(f"[{datetime.now()}] Checking for flight alerts...")
+        logger.info("Checking for flight alerts")
 
-        gmail, flights = gmail_handler.check_flights()
+        # The Google client is synchronous; keep it off Discord's event loop.
+        gmail, flights = await asyncio.to_thread(gmail_handler.check_flights)
 
         if gmail is None:
-            print(
-                f"[{datetime.now()}] Gmail authentication failed, will retry on next scheduled run"
-            )
+            logger.error("Gmail authentication failed; retrying on next scheduled run")
             return
 
         if not flights:
-            print(f"[{datetime.now()}] No new flights found")
+            logger.info("No new flight alerts found")
             return
 
         channel = self.bot.get_channel(ALERT_CHANNEL_ID)
         if not channel:
-            print(f"Could not find channel {ALERT_CHANNEL_ID}")
+            logger.error("Flight alert channel not found: channel=%s", ALERT_CHANNEL_ID)
             return
 
         for flight_data in flights:
@@ -72,10 +74,20 @@ class FlightAlerts(commands.Cog):
 
             await channel.send(embed=embed)
 
-            print(flight_data["email_id"])
-            gmail_handler.mark_as_read(gmail, flight_data["email_id"]["id"])
+            await asyncio.to_thread(
+                gmail_handler.mark_as_read,
+                gmail,
+                flight_data["email_id"]["id"],
+            )
 
-        print(f"Posted {len(flights)} flight alerts")
+        logger.info("Posted flight alerts: count=%d", len(flights))
+
+    @check_flights.error
+    async def check_flights_error(self, error: BaseException) -> None:
+        logger.error(
+            "Unexpected flight alert check failure",
+            exc_info=(type(error), error, error.__traceback__),
+        )
 
     @check_flights.before_loop
     async def before_check_flights(self):

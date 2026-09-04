@@ -1,9 +1,11 @@
 import base64
+import logging
 import re
-from datetime import datetime
 
 from cogs.flight_alerts.auth_gmail import authenticate_gmail
 from bot_config import GMAIL_QUERY
+
+logger = logging.getLogger("wannbot.gmail")
 
 # gmail = authenticate_gmail()
 
@@ -12,8 +14,9 @@ def get_unread_flight_alerts(gmail):
     try:
         result = gmail.users().messages().list(userId="me", q=GMAIL_QUERY).execute()
         id_list = result.get("messages", [])
-    except Exception as e:
-        print(f"[{datetime.now()}] Error: {e}\nMaybe token expired?")
+    except Exception:
+        logger.exception("Failed to list unread flight alert emails")
+        raise
     # returns list of msg ids in inbox
     return id_list
 
@@ -87,14 +90,14 @@ def parse_flight_email(msg):
 
 def check_flights():
     flight_data = []
-    print(f"[{datetime.now()}] Authenticating Gmail..")
+    logger.info("Authenticating Gmail")
 
     try:
         gmail = authenticate_gmail()
-        print(f"[{datetime.now()}] Gmail successfully authenticated")
-    except Exception as e:
-        print(f"[{datetime.now()}] Error authenticating Gmail: {e}")
-        return None
+        logger.info("Gmail authenticated")
+    except Exception:
+        logger.exception("Error authenticating Gmail")
+        return None, []
     id_list = get_unread_flight_alerts(gmail)
     for id in reversed(id_list):
         msg = get_email_content(gmail, id)

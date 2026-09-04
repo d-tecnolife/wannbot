@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlparse
@@ -8,6 +9,7 @@ import aiohttp
 
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
+logger = logging.getLogger("wannbot.providers")
 
 
 class ProviderError(RuntimeError):
@@ -158,8 +160,14 @@ class SerpAPIClient:
             raise ProviderError("SerpAPI is not configured.", code="configuration")
 
         request_params = {**params, "api_key": self.api_key, "output": "json"}
+        logger.info("SerpAPI request started: engine=%s", params.get("engine"))
         try:
             async with self.session.get(SERPAPI_ENDPOINT, params=request_params) as response:
+                logger.info(
+                    "SerpAPI response received: engine=%s status=%d",
+                    params.get("engine"),
+                    response.status,
+                )
                 if response.status in {401, 403}:
                     raise ProviderError(
                         "The SerpAPI credential was rejected.", code="authentication"
@@ -261,9 +269,30 @@ class AIClient:
             )
 
         for index, provider in enumerate(providers):
+            logger.info(
+                "AI request started: provider=%s model=%s attempt=%d/%d",
+                provider.name,
+                provider.model,
+                index + 1,
+                len(providers),
+            )
             try:
-                return await self._answer(provider, query, system_instruction)
+                answer = await self._answer(provider, query, system_instruction)
+                logger.info(
+                    "AI request completed: provider=%s model=%s response_chars=%d",
+                    provider.name,
+                    provider.model,
+                    len(answer),
+                )
+                return answer
             except ProviderError as exc:
+                logger.warning(
+                    "AI request failed: provider=%s model=%s code=%s error=%s",
+                    provider.name,
+                    provider.model,
+                    exc.code,
+                    exc,
+                )
                 if exc.code not in {"configuration", "quota"} or index == len(
                     providers
                 ) - 1:
