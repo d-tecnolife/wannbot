@@ -69,3 +69,14 @@ Run the bot with:
 ```bash
 python3 main.py
 ```
+
+Logs are written to stdout and include extension startup, command receipt and
+completion, provider/model attempts, HTTP status codes, and full tracebacks for
+unexpected failures. Query text and API keys are not logged. If a command-like
+message is logged as received but never logged as started, check that its name and
+prefix match the configured commands. If it is not logged as received at all,
+confirm the Discord application's Message Content privileged intent is enabled.
+
+When the container filesystem is read-only, mount `token.json` writable if you want
+refreshed Gmail credentials to persist. A refreshed token remains usable in memory
+for the current process even when that file cannot be updated.
