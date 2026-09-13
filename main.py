@@ -75,7 +75,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError) 
 
 
 async def load_cogs():
-    for extension in ("cogs.flight_alerts.flight_alerts", "cogs.search.search"):
+    for extension in ("cogs.search.search", "cogs.music.music"):
         logger.info("Loading extension: %s", extension)
         await bot.load_extension(extension)
         logger.info("Extension loaded: %s", extension)
