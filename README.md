@@ -12,6 +12,8 @@ persona, and music playback in voice channels.
   not return an overview, the bot links to the normal Google results instead.
 - `!askwann <query>` asks the configured AI provider using `AI_PERSONA`
   and sends the answer as normal bot text.
+- `!help [command]` (alias `!commands`) lists every command with its usage, or
+  shows details for one command. It always reflects the configured names.
 - `!play <query or link>` (alias `!p`) joins your voice channel and plays the first
   YouTube search result, or any link yt-dlp supports (YouTube, SoundCloud, Bandcamp,
   and more). Playlist links queue up to `MUSIC_PLAYLIST_LIMIT` tracks.
@@ -47,7 +49,7 @@ YTDLP_COOKIES_FILE=/app/cookies.txt
 
 Command names, aliases, prefix, persona, output-token budget, and music limits live
 in `bot_config.py`. Every command has a `*_COMMAND` name and a `*_ALIASES` tuple
-there (`IMAGE`, `GOOGLE_ASK`, `PERSONA_ASK`, `PLAY`, `SKIP`, `PAUSE`, `RESUME`,
+there (`IMAGE`, `GOOGLE_ASK`, `PERSONA_ASK`, `HELP`, `PLAY`, `SKIP`, `PAUSE`, `RESUME`,
 `STOP`, `NOW_PLAYING`, and `QUEUE`); change them to rename commands. Music settings
 missing from an older `bot_config.py` fall back to the defaults shown there.
 `MUSIC_MAX_QUEUE`, `MUSIC_PLAYLIST_LIMIT`, and `MUSIC_IDLE_SECONDS` control queue

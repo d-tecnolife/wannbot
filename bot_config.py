@@ -5,7 +5,11 @@ BOT_PREFIX = "!"
 IMAGE_COMMAND = "im"
 IMAGE_ALIASES = ("image",)
 GOOGLE_ASK_COMMAND = "ask"
+GOOGLE_ASK_ALIASES = ()
 PERSONA_ASK_COMMAND = "askwann"
+PERSONA_ASK_ALIASES = ()
+HELP_COMMAND = "help"
+HELP_ALIASES = ("commands",)
 
 # Music command routing
 PLAY_COMMAND = "play"

@@ -234,10 +234,14 @@ class Music(commands.Cog):
         voice = ctx.voice_client
         return voice if isinstance(voice, discord.VoiceClient) else None
 
-    @commands.command(name=PLAY_COMMAND, aliases=PLAY_ALIASES)
+    @commands.command(name=PLAY_COMMAND, aliases=PLAY_ALIASES, usage="<search or link>")
     @commands.cooldown(1, 3, commands.BucketType.user)
     async def play(self, ctx: commands.Context, *, query: str) -> None:
-        """Play a search result or link in your voice channel."""
+        """Join your voice channel and play a YouTube search result or a link.
+
+        Links can be YouTube, SoundCloud, Bandcamp, or any site yt-dlp supports.
+        Playlist links queue several tracks.
+        """
         author_voice = getattr(ctx.author, "voice", None)
         if not author_voice or not author_voice.channel:
             await ctx.reply("Join a voice channel first.", mention_author=False)
@@ -277,7 +281,7 @@ class Music(commands.Cog):
 
     @commands.command(name=SKIP_COMMAND, aliases=SKIP_ALIASES)
     async def skip(self, ctx: commands.Context) -> None:
-        """Skip the current track."""
+        """Skip the current track and play the next one."""
         voice = self._voice(ctx)
         if not voice or not (voice.is_playing() or voice.is_paused()):
             await ctx.reply("Nothing is playing.", mention_author=False)
@@ -307,7 +311,7 @@ class Music(commands.Cog):
 
     @commands.command(name=STOP_COMMAND, aliases=STOP_ALIASES)
     async def stop(self, ctx: commands.Context) -> None:
-        """Clear the queue and leave voice."""
+        """Stop playback, clear the queue, and leave voice."""
         player = self.players.get(ctx.guild.id)
         if player:
             player.stop()
@@ -320,7 +324,7 @@ class Music(commands.Cog):
 
     @commands.command(name=NOW_PLAYING_COMMAND, aliases=NOW_PLAYING_ALIASES)
     async def now_playing(self, ctx: commands.Context) -> None:
-        """Show the current track."""
+        """Show the track that is playing now."""
         player = self.players.get(ctx.guild.id)
         if not player or not player.current:
             await ctx.reply("Nothing is playing.", mention_author=False)
@@ -334,7 +338,7 @@ class Music(commands.Cog):
 
     @commands.command(name=QUEUE_COMMAND, aliases=QUEUE_ALIASES)
     async def show_queue(self, ctx: commands.Context) -> None:
-        """Show upcoming tracks."""
+        """Show the current track and what is queued next."""
         player = self.players.get(ctx.guild.id)
         if not player or (not player.current and not player.queue):
             await ctx.reply("The queue is empty.", mention_author=False)

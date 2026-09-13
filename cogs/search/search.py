@@ -178,10 +178,10 @@ class Search(commands.Cog):
         await self.serpapi.close()
         await self.ai.close()
 
-    @commands.command(name=IMAGE_COMMAND, aliases=IMAGE_ALIASES)
+    @commands.command(name=IMAGE_COMMAND, aliases=IMAGE_ALIASES, usage="<query>")
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def image_search(self, ctx: commands.Context, *, query: str) -> None:
-        """Search Google Images and show a public, shared carousel."""
+        """Search Google Images and show a 10-result carousel anyone can page through."""
         async with ctx.typing():
             results = await self.serpapi.image_search(
                 query, safe=not channel_is_nsfw(ctx.channel)
@@ -201,10 +201,14 @@ class Search(commands.Cog):
             mention_author=False,
         )
 
-    @commands.command(name=GOOGLE_ASK_COMMAND)
+    @commands.command(
+        name=GOOGLE_ASK_COMMAND,
+        aliases=getattr(bot_config, "GOOGLE_ASK_ALIASES", ()),
+        usage="<question>",
+    )
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def ask(self, ctx: commands.Context, *, query: str) -> None:
-        """Show Google's AI Overview."""
+        """Show Google's AI Overview for a question, with up to five sources."""
         async with ctx.typing():
             overview = await self.serpapi.ai_overview(
                 query, safe=not channel_is_nsfw(ctx.channel)
@@ -228,10 +232,14 @@ class Search(commands.Cog):
             mention_author=False,
         )
 
-    @commands.command(name=PERSONA_ASK_COMMAND)
+    @commands.command(
+        name=PERSONA_ASK_COMMAND,
+        aliases=getattr(bot_config, "PERSONA_ASK_ALIASES", ()),
+        usage="<question>",
+    )
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def ask_wann(self, ctx: commands.Context, *, query: str) -> None:
-        """Ask the configured AI provider using the wannbot persona."""
+        """Ask the AI a question and get an answer in the wannbot persona."""
         async with ctx.typing():
             answer = await self.ai.answer(query)
 

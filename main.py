@@ -15,7 +15,7 @@ logger = logging.getLogger("wannbot")
 intents = discord.Intents.default()
 intents.message_content = True
 
-bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents)
+bot = commands.Bot(command_prefix=BOT_PREFIX, intents=intents, help_command=None)
 
 
 @bot.event
@@ -75,7 +75,7 @@ async def on_command_error(ctx: commands.Context, error: commands.CommandError) 
 
 
 async def load_cogs():
-    for extension in ("cogs.search.search", "cogs.music.music"):
+    for extension in ("cogs.search.search", "cogs.music.music", "cogs.help.help"):
         logger.info("Loading extension: %s", extension)
         await bot.load_extension(extension)
         logger.info("Extension loaded: %s", extension)
