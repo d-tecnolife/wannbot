@@ -15,8 +15,8 @@ persona, and music playback in voice channels.
 - `!play <query or link>` (alias `!p`) joins your voice channel and plays the first
   YouTube search result, or any link yt-dlp supports (YouTube, SoundCloud, Bandcamp,
   and more). Playlist links queue up to `MUSIC_PLAYLIST_LIMIT` tracks.
-- `!skip`, `!pause`, `!resume`, `!queue`, `!np`, and `!stop` (alias `!leave`)
-  control playback. `!stop` clears the queue and leaves the channel.
+- `!skip`, `!pause`, `!resume`, `!queue` (alias `!q`), `!np`, and `!stop` (alias
+  `!leave`) control playback. `!stop` clears the queue and leaves the channel.
 
 The prefix defaults to `!` and can be changed with `BOT_PREFIX` in `bot_config.py`.
 Each search command has its own 10-second per-user cooldown. SafeSearch is enabled
@@ -46,8 +46,12 @@ YTDLP_COOKIES_FILE=/app/cookies.txt
 ```
 
 Command names, aliases, prefix, persona, output-token budget, and music limits live
-in `bot_config.py`. Change `IMAGE_COMMAND`, `IMAGE_ALIASES`, `GOOGLE_ASK_COMMAND`,
-`PERSONA_ASK_COMMAND`, `PLAY_COMMAND`, or `PLAY_ALIASES` there to rename commands.
+in `bot_config.py`. Every command has a `*_COMMAND` name and a `*_ALIASES` tuple
+there (`IMAGE`, `GOOGLE_ASK`, `PERSONA_ASK`, `PLAY`, `SKIP`, `PAUSE`, `RESUME`,
+`STOP`, `NOW_PLAYING`, and `QUEUE`); change them to rename commands. Music settings
+missing from an older `bot_config.py` fall back to the defaults shown there.
+`MUSIC_MAX_QUEUE`, `MUSIC_PLAYLIST_LIMIT`, and `MUSIC_IDLE_SECONDS` control queue
+size, playlist import size, and how long an idle bot stays in voice.
 `AI_MAX_OUTPUT_TOKENS` and `AI_MAX_WORDS` control persona-answer length. The
 defaults use a 2,048-token ceiling and a 700-word maximum. The word maximum is not
 a target; the model is instructed to answer as briefly as appropriate without

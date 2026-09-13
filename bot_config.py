@@ -6,8 +6,22 @@ IMAGE_COMMAND = "im"
 IMAGE_ALIASES = ("image",)
 GOOGLE_ASK_COMMAND = "ask"
 PERSONA_ASK_COMMAND = "askwann"
+
+# Music command routing
 PLAY_COMMAND = "play"
 PLAY_ALIASES = ("p",)
+SKIP_COMMAND = "skip"
+SKIP_ALIASES = ()
+PAUSE_COMMAND = "pause"
+PAUSE_ALIASES = ()
+RESUME_COMMAND = "resume"
+RESUME_ALIASES = ()
+STOP_COMMAND = "stop"
+STOP_ALIASES = ("leave",)
+NOW_PLAYING_COMMAND = "np"
+NOW_PLAYING_ALIASES = ()
+QUEUE_COMMAND = "queue"
+QUEUE_ALIASES = ("q",)
 
 # AI persona used by PERSONA_ASK_COMMAND
 AI_MAX_OUTPUT_TOKENS = 2048

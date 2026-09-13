@@ -17,6 +17,18 @@ from config import YTDLP_COOKIES_FILE
 
 PLAY_COMMAND = getattr(bot_config, "PLAY_COMMAND", "play")
 PLAY_ALIASES = getattr(bot_config, "PLAY_ALIASES", ("p",))
+SKIP_COMMAND = getattr(bot_config, "SKIP_COMMAND", "skip")
+SKIP_ALIASES = getattr(bot_config, "SKIP_ALIASES", ())
+PAUSE_COMMAND = getattr(bot_config, "PAUSE_COMMAND", "pause")
+PAUSE_ALIASES = getattr(bot_config, "PAUSE_ALIASES", ())
+RESUME_COMMAND = getattr(bot_config, "RESUME_COMMAND", "resume")
+RESUME_ALIASES = getattr(bot_config, "RESUME_ALIASES", ())
+STOP_COMMAND = getattr(bot_config, "STOP_COMMAND", "stop")
+STOP_ALIASES = getattr(bot_config, "STOP_ALIASES", ("leave",))
+NOW_PLAYING_COMMAND = getattr(bot_config, "NOW_PLAYING_COMMAND", "np")
+NOW_PLAYING_ALIASES = getattr(bot_config, "NOW_PLAYING_ALIASES", ())
+QUEUE_COMMAND = getattr(bot_config, "QUEUE_COMMAND", "queue")
+QUEUE_ALIASES = getattr(bot_config, "QUEUE_ALIASES", ("q",))
 MAX_QUEUE = getattr(bot_config, "MUSIC_MAX_QUEUE", 50)
 PLAYLIST_LIMIT = getattr(bot_config, "MUSIC_PLAYLIST_LIMIT", 25)
 IDLE_SECONDS = getattr(bot_config, "MUSIC_IDLE_SECONDS", 300)
@@ -263,7 +275,7 @@ class Music(commands.Cog):
         elif was_busy:
             await ctx.reply(f"Queued **{added[0].title}**.", mention_author=False)
 
-    @commands.command(name="skip")
+    @commands.command(name=SKIP_COMMAND, aliases=SKIP_ALIASES)
     async def skip(self, ctx: commands.Context) -> None:
         """Skip the current track."""
         voice = self._voice(ctx)
@@ -273,7 +285,7 @@ class Music(commands.Cog):
         voice.stop()
         await ctx.message.add_reaction("⏭️")
 
-    @commands.command(name="pause")
+    @commands.command(name=PAUSE_COMMAND, aliases=PAUSE_ALIASES)
     async def pause(self, ctx: commands.Context) -> None:
         """Pause playback."""
         voice = self._voice(ctx)
@@ -283,7 +295,7 @@ class Music(commands.Cog):
         voice.pause()
         await ctx.message.add_reaction("⏸️")
 
-    @commands.command(name="resume")
+    @commands.command(name=RESUME_COMMAND, aliases=RESUME_ALIASES)
     async def resume(self, ctx: commands.Context) -> None:
         """Resume paused playback."""
         voice = self._voice(ctx)
@@ -293,7 +305,7 @@ class Music(commands.Cog):
         voice.resume()
         await ctx.message.add_reaction("▶️")
 
-    @commands.command(name="stop", aliases=("leave",))
+    @commands.command(name=STOP_COMMAND, aliases=STOP_ALIASES)
     async def stop(self, ctx: commands.Context) -> None:
         """Clear the queue and leave voice."""
         player = self.players.get(ctx.guild.id)
@@ -306,7 +318,7 @@ class Music(commands.Cog):
             return
         await ctx.message.add_reaction("⏹️")
 
-    @commands.command(name="np")
+    @commands.command(name=NOW_PLAYING_COMMAND, aliases=NOW_PLAYING_ALIASES)
     async def now_playing(self, ctx: commands.Context) -> None:
         """Show the current track."""
         player = self.players.get(ctx.guild.id)
@@ -320,7 +332,7 @@ class Music(commands.Cog):
             mention_author=False,
         )
 
-    @commands.command(name="queue", aliases=("q",))
+    @commands.command(name=QUEUE_COMMAND, aliases=QUEUE_ALIASES)
     async def show_queue(self, ctx: commands.Context) -> None:
         """Show upcoming tracks."""
         player = self.players.get(ctx.guild.id)
@@ -387,4 +399,17 @@ class Music(commands.Cog):
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Music(bot))
-    logger.info("Music cog ready: play_command=%s", PLAY_COMMAND)
+    logger.info(
+        "Music cog ready: commands=%s",
+        ",".join(
+            (
+                PLAY_COMMAND,
+                SKIP_COMMAND,
+                PAUSE_COMMAND,
+                RESUME_COMMAND,
+                STOP_COMMAND,
+                NOW_PLAYING_COMMAND,
+                QUEUE_COMMAND,
+            )
+        ),
+    )

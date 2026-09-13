@@ -1,4 +1,11 @@
-from cogs.music.music import Track, entries_to_tracks, format_duration, normalize_query
+import bot_config
+from cogs.music.music import (
+    Music,
+    Track,
+    entries_to_tracks,
+    format_duration,
+    normalize_query,
+)
 
 
 def test_normalize_query_keeps_links_and_strips_embed_brackets():
@@ -43,3 +50,10 @@ def test_entries_to_tracks_flat_playlist_skips_bad_entries_and_limits():
 
 def test_entries_to_tracks_empty_search():
     assert entries_to_tracks({"entries": []}, "carol") == []
+
+
+def test_music_commands_use_bot_config_names_and_aliases():
+    commands = {command.name: tuple(command.aliases) for command in Music(None).get_commands()}
+    for prefix in ("PLAY", "SKIP", "PAUSE", "RESUME", "STOP", "NOW_PLAYING", "QUEUE"):
+        name = getattr(bot_config, f"{prefix}_COMMAND")
+        assert commands[name] == tuple(getattr(bot_config, f"{prefix}_ALIASES"))
