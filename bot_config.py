@@ -14,6 +14,8 @@ HELP_ALIASES = ("commands",)
 # Music command routing
 PLAY_COMMAND = "play"
 PLAY_ALIASES = ("p",)
+PLAY_NOW_COMMAND = "playnow"
+PLAY_NOW_ALIASES = ("pn",)
 SKIP_COMMAND = "skip"
 SKIP_ALIASES = ()
 PAUSE_COMMAND = "pause"
@@ -26,6 +28,8 @@ NOW_PLAYING_COMMAND = "np"
 NOW_PLAYING_ALIASES = ()
 QUEUE_COMMAND = "queue"
 QUEUE_ALIASES = ("q",)
+CLEAR_COMMAND = "clear"
+CLEAR_ALIASES = ()
 
 # AI persona used by PERSONA_ASK_COMMAND
 AI_MAX_OUTPUT_TOKENS = 2048

@@ -17,6 +17,8 @@ from config import YTDLP_COOKIES_FILE
 
 PLAY_COMMAND = getattr(bot_config, "PLAY_COMMAND", "play")
 PLAY_ALIASES = getattr(bot_config, "PLAY_ALIASES", ("p",))
+PLAY_NOW_COMMAND = getattr(bot_config, "PLAY_NOW_COMMAND", "playnow")
+PLAY_NOW_ALIASES = getattr(bot_config, "PLAY_NOW_ALIASES", ("pn",))
 SKIP_COMMAND = getattr(bot_config, "SKIP_COMMAND", "skip")
 SKIP_ALIASES = getattr(bot_config, "SKIP_ALIASES", ())
 PAUSE_COMMAND = getattr(bot_config, "PAUSE_COMMAND", "pause")
@@ -29,6 +31,8 @@ NOW_PLAYING_COMMAND = getattr(bot_config, "NOW_PLAYING_COMMAND", "np")
 NOW_PLAYING_ALIASES = getattr(bot_config, "NOW_PLAYING_ALIASES", ())
 QUEUE_COMMAND = getattr(bot_config, "QUEUE_COMMAND", "queue")
 QUEUE_ALIASES = getattr(bot_config, "QUEUE_ALIASES", ("q",))
+CLEAR_COMMAND = getattr(bot_config, "CLEAR_COMMAND", "clear")
+CLEAR_ALIASES = getattr(bot_config, "CLEAR_ALIASES", ())
 MAX_QUEUE = getattr(bot_config, "MUSIC_MAX_QUEUE", 50)
 PLAYLIST_LIMIT = getattr(bot_config, "MUSIC_PLAYLIST_LIMIT", 25)
 IDLE_SECONDS = getattr(bot_config, "MUSIC_IDLE_SECONDS", 300)
@@ -147,12 +151,20 @@ class GuildPlayer:
         self._wakeup = asyncio.Event()
         self.task = asyncio.create_task(self._run())
 
-    def add(self, tracks: list[Track]) -> list[Track]:
+    def add(self, tracks: list[Track], *, front: bool = False) -> list[Track]:
         added = tracks[: max(MAX_QUEUE - len(self.queue), 0)]
-        self.queue.extend(added)
+        if front:
+            self.queue.extendleft(reversed(added))
+        else:
+            self.queue.extend(added)
         if added:
             self._wakeup.set()
         return added
+
+    def clear(self) -> int:
+        cleared = len(self.queue)
+        self.queue.clear()
+        return cleared
 
     async def _next_track(self) -> Track:
         while not self.queue:
@@ -234,18 +246,14 @@ class Music(commands.Cog):
         voice = ctx.voice_client
         return voice if isinstance(voice, discord.VoiceClient) else None
 
-    @commands.command(name=PLAY_COMMAND, aliases=PLAY_ALIASES, usage="<search or link>")
-    @commands.cooldown(1, 3, commands.BucketType.user)
-    async def play(self, ctx: commands.Context, *, query: str) -> None:
-        """Join your voice channel and play a YouTube search result or a link.
-
-        Links can be YouTube, SoundCloud, Bandcamp, or any site yt-dlp supports.
-        Playlist links queue several tracks.
-        """
+    async def _enqueue(
+        self, ctx: commands.Context, query: str, *, front: bool
+    ) -> tuple[GuildPlayer, list[Track], bool] | None:
+        """Look up tracks, join the caller's voice channel, and queue them."""
         author_voice = getattr(ctx.author, "voice", None)
         if not author_voice or not author_voice.channel:
             await ctx.reply("Join a voice channel first.", mention_author=False)
-            return
+            return None
 
         async with ctx.typing():
             try:
@@ -253,11 +261,11 @@ class Music(commands.Cog):
             except yt_dlp.utils.DownloadError as exc:
                 logger.warning("Track lookup failed: guild=%s error=%s", ctx.guild.id, exc)
                 await ctx.reply("Could not load that link or search.", mention_author=False)
-                return
+                return None
 
         if not tracks:
             await ctx.reply("No playable results were found.", mention_author=False)
-            return
+            return None
 
         voice = self._voice(ctx)
         if voice is None:
@@ -271,13 +279,48 @@ class Music(commands.Cog):
             self.players[ctx.guild.id] = player
 
         was_busy = player.current is not None or bool(player.queue)
-        added = player.add(tracks)
+        added = player.add(tracks, front=front)
         if not added:
             await ctx.reply(f"The queue is full ({MAX_QUEUE} tracks).", mention_author=False)
-        elif len(added) > 1:
+            return None
+        return player, added, was_busy
+
+    @commands.command(name=PLAY_COMMAND, aliases=PLAY_ALIASES, usage="<search or link>")
+    @commands.cooldown(1, 3, commands.BucketType.user)
+    async def play(self, ctx: commands.Context, *, query: str) -> None:
+        """Join your voice channel and play a YouTube search result or a link.
+
+        Links can be YouTube, SoundCloud, Bandcamp, or any site yt-dlp supports.
+        Playlist links queue several tracks.
+        """
+        queued = await self._enqueue(ctx, query, front=False)
+        if queued is None:
+            return
+        _, added, was_busy = queued
+        if len(added) > 1:
             await ctx.reply(f"Queued {len(added)} tracks.", mention_author=False)
         elif was_busy:
             await ctx.reply(f"Queued **{added[0].title}**.", mention_author=False)
+
+    @commands.command(name=PLAY_NOW_COMMAND, aliases=PLAY_NOW_ALIASES, usage="<search or link>")
+    @commands.cooldown(1, 3, commands.BucketType.user)
+    async def play_now(self, ctx: commands.Context, *, query: str) -> None:
+        """Play a search result or link right away, skipping the queue.
+
+        The current track is skipped and the rest of the queue plays afterwards.
+        Playlist links put all their tracks at the front, in order.
+        """
+        queued = await self._enqueue(ctx, query, front=True)
+        if queued is None:
+            return
+        _, added, _ = queued
+        voice = self._voice(ctx)
+        if voice and (voice.is_playing() or voice.is_paused()):
+            voice.stop()
+        if len(added) > 1:
+            await ctx.reply(
+                f"Playing {len(added)} tracks now, ahead of the queue.", mention_author=False
+            )
 
     @commands.command(name=SKIP_COMMAND, aliases=SKIP_ALIASES)
     async def skip(self, ctx: commands.Context) -> None:
@@ -321,6 +364,18 @@ class Music(commands.Cog):
             await ctx.reply("I am not in a voice channel.", mention_author=False)
             return
         await ctx.message.add_reaction("⏹️")
+
+    @commands.command(name=CLEAR_COMMAND, aliases=CLEAR_ALIASES)
+    async def clear_queue(self, ctx: commands.Context) -> None:
+        """Remove every queued track but keep the current one playing."""
+        player = self.players.get(ctx.guild.id)
+        if not player or not player.queue:
+            await ctx.reply("The queue is already empty.", mention_author=False)
+            return
+        cleared = player.clear()
+        await ctx.reply(
+            f"Cleared {cleared} queued track{'s' if cleared != 1 else ''}.", mention_author=False
+        )
 
     @commands.command(name=NOW_PLAYING_COMMAND, aliases=NOW_PLAYING_ALIASES)
     async def now_playing(self, ctx: commands.Context) -> None:
@@ -408,12 +463,14 @@ async def setup(bot: commands.Bot) -> None:
         ",".join(
             (
                 PLAY_COMMAND,
+                PLAY_NOW_COMMAND,
                 SKIP_COMMAND,
                 PAUSE_COMMAND,
                 RESUME_COMMAND,
                 STOP_COMMAND,
                 NOW_PLAYING_COMMAND,
                 QUEUE_COMMAND,
+                CLEAR_COMMAND,
             )
         ),
     )

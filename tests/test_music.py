@@ -1,5 +1,9 @@
+import asyncio
+from collections import deque
+
 import bot_config
 from cogs.music.music import (
+    GuildPlayer,
     Music,
     Track,
     entries_to_tracks,
@@ -54,6 +58,39 @@ def test_entries_to_tracks_empty_search():
 
 def test_music_commands_use_bot_config_names_and_aliases():
     commands = {command.name: tuple(command.aliases) for command in Music(None).get_commands()}
-    for prefix in ("PLAY", "SKIP", "PAUSE", "RESUME", "STOP", "NOW_PLAYING", "QUEUE"):
+    for prefix in (
+        "PLAY",
+        "PLAY_NOW",
+        "SKIP",
+        "PAUSE",
+        "RESUME",
+        "STOP",
+        "NOW_PLAYING",
+        "QUEUE",
+        "CLEAR",
+    ):
         name = getattr(bot_config, f"{prefix}_COMMAND")
         assert commands[name] == tuple(getattr(bot_config, f"{prefix}_ALIASES"))
+
+
+def queue_player(titles):
+    player = GuildPlayer.__new__(GuildPlayer)
+    player.queue = deque(track(title) for title in titles)
+    player._wakeup = asyncio.Event()
+    return player
+
+
+def track(title):
+    return Track(title, f"https://example.com/{title}", None, "tester")
+
+
+def test_add_front_places_tracks_ahead_of_queue_in_order():
+    player = queue_player(["old1", "old2"])
+    player.add([track("new1"), track("new2")], front=True)
+    assert [item.title for item in player.queue] == ["new1", "new2", "old1", "old2"]
+
+
+def test_clear_empties_queue_and_reports_count():
+    player = queue_player(["a", "b", "c"])
+    assert player.clear() == 3
+    assert not player.queue

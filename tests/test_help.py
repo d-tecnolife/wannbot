@@ -16,12 +16,14 @@ def test_help_embed_lists_every_configured_command_with_usage_and_aliases():
         "GOOGLE_ASK",
         "PERSONA_ASK",
         "PLAY",
+        "PLAY_NOW",
         "SKIP",
         "PAUSE",
         "RESUME",
         "STOP",
         "NOW_PLAYING",
         "QUEUE",
+        "CLEAR",
         "HELP",
     ):
         assert f"`?{getattr(bot_config, f'{prefix}_COMMAND')}" in text
