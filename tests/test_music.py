@@ -68,6 +68,8 @@ def test_music_commands_use_bot_config_names_and_aliases():
         "NOW_PLAYING",
         "QUEUE",
         "CLEAR",
+        "LOOP",
+        "LOOP_QUEUE",
     ):
         name = getattr(bot_config, f"{prefix}_COMMAND")
         assert commands[name] == tuple(getattr(bot_config, f"{prefix}_ALIASES"))
@@ -94,3 +96,33 @@ def test_clear_empties_queue_and_reports_count():
     player = queue_player(["a", "b", "c"])
     assert player.clear() == 3
     assert not player.queue
+
+
+def test_loop_track_requeues_finished_track_at_front():
+    player = queue_player(["next"])
+    player.loop_mode = "track"
+    player.requeue_finished(track("now"))
+    assert [item.title for item in player.queue] == ["now", "next"]
+
+
+def test_loop_track_does_not_repeat_a_skipped_track():
+    player = queue_player(["next"])
+    player.loop_mode = "track"
+    player.skip_requested = True
+    player.requeue_finished(track("now"))
+    assert [item.title for item in player.queue] == ["next"]
+    assert not player.skip_requested
+
+
+def test_loop_queue_sends_finished_track_to_back_even_when_skipped():
+    player = queue_player(["a", "b"])
+    player.loop_mode = "queue"
+    player.skip_requested = True
+    player.requeue_finished(track("now"))
+    assert [item.title for item in player.queue] == ["a", "b", "now"]
+
+
+def test_no_loop_drops_finished_track():
+    player = queue_player(["a"])
+    player.requeue_finished(track("now"))
+    assert [item.title for item in player.queue] == ["a"]
