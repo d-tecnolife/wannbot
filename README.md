@@ -22,6 +22,9 @@ persona, and music playback in voice channels.
 - `!skip`, `!pause`, `!resume`, `!queue` (alias `!q`), `!np`, `!clear`, and `!stop`
   (alias `!leave`) control playback. `!clear` empties the queue but keeps the current
   track playing; `!stop` clears the queue and leaves the channel.
+- `!loop` toggles looping the current track; `!loopqueue` (alias `!lq`) toggles looping
+  the whole queue, sending each finished track to the back. Only one loop mode is active
+  at a time, and `!skip` still moves past a looped track.
 
 The prefix defaults to `!` and can be changed with `BOT_PREFIX` in `bot_config.py`.
 Each search command has its own 10-second per-user cooldown. SafeSearch is enabled
@@ -53,7 +56,7 @@ YTDLP_COOKIES_FILE=/app/cookies.txt
 Command names, aliases, prefix, persona, output-token budget, and music limits live
 in `bot_config.py`. Every command has a `*_COMMAND` name and a `*_ALIASES` tuple
 there (`IMAGE`, `GOOGLE_ASK`, `PERSONA_ASK`, `HELP`, `PLAY`, `PLAY_NOW`, `SKIP`, `PAUSE`,
-`RESUME`, `STOP`, `NOW_PLAYING`, `QUEUE`, and `CLEAR`); change them to rename commands. Music settings
+`RESUME`, `STOP`, `NOW_PLAYING`, `QUEUE`, `CLEAR`, `LOOP`, and `LOOP_QUEUE`); change them to rename commands. Music settings
 missing from an older `bot_config.py` fall back to the defaults shown there.
 `MUSIC_MAX_QUEUE`, `MUSIC_PLAYLIST_LIMIT`, and `MUSIC_IDLE_SECONDS` control queue
 size, playlist import size, and how long an idle bot stays in voice.

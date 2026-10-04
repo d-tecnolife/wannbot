@@ -33,6 +33,10 @@ QUEUE_COMMAND = getattr(bot_config, "QUEUE_COMMAND", "queue")
 QUEUE_ALIASES = getattr(bot_config, "QUEUE_ALIASES", ("q",))
 CLEAR_COMMAND = getattr(bot_config, "CLEAR_COMMAND", "clear")
 CLEAR_ALIASES = getattr(bot_config, "CLEAR_ALIASES", ())
+LOOP_COMMAND = getattr(bot_config, "LOOP_COMMAND", "loop")
+LOOP_ALIASES = getattr(bot_config, "LOOP_ALIASES", ())
+LOOP_QUEUE_COMMAND = getattr(bot_config, "LOOP_QUEUE_COMMAND", "loopqueue")
+LOOP_QUEUE_ALIASES = getattr(bot_config, "LOOP_QUEUE_ALIASES", ("lq",))
 MAX_QUEUE = getattr(bot_config, "MUSIC_MAX_QUEUE", 50)
 PLAYLIST_LIMIT = getattr(bot_config, "MUSIC_PLAYLIST_LIMIT", 25)
 IDLE_SECONDS = getattr(bot_config, "MUSIC_IDLE_SECONDS", 300)
@@ -141,7 +145,15 @@ async def resolve_stream(url: str) -> str:
     return stream_url
 
 
+LOOP_OFF = "off"
+LOOP_TRACK = "track"
+LOOP_QUEUE = "queue"
+
+
 class GuildPlayer:
+    loop_mode = LOOP_OFF
+    skip_requested = False
+
     def __init__(self, cog: Music, guild: discord.Guild, channel: discord.abc.Messageable):
         self.cog = cog
         self.guild = guild
@@ -165,6 +177,19 @@ class GuildPlayer:
         cleared = len(self.queue)
         self.queue.clear()
         return cleared
+
+    def request_skip(self, voice: discord.VoiceClient) -> None:
+        """Stop the current track and move on even when it is being looped."""
+        self.skip_requested = True
+        voice.stop()
+
+    def requeue_finished(self, track: Track) -> None:
+        """Put a finished track back according to the loop mode."""
+        skipped, self.skip_requested = self.skip_requested, False
+        if self.loop_mode == LOOP_TRACK and not skipped:
+            self.queue.appendleft(track)
+        elif self.loop_mode == LOOP_QUEUE:
+            self.queue.append(track)
 
     async def _next_track(self) -> Track:
         while not self.queue:
@@ -201,6 +226,7 @@ class GuildPlayer:
                     loop.call_soon_threadsafe(finished.set)
 
                 self.current = track
+                self.skip_requested = False
                 voice.play(
                     discord.FFmpegOpusAudio(
                         stream_url, before_options=FFMPEG_BEFORE_OPTIONS, options="-vn"
@@ -214,6 +240,7 @@ class GuildPlayer:
                 )
                 await finished.wait()
                 self.current = None
+                self.requeue_finished(track)
         finally:
             self.current = None
             self.queue.clear()
@@ -313,10 +340,10 @@ class Music(commands.Cog):
         queued = await self._enqueue(ctx, query, front=True)
         if queued is None:
             return
-        _, added, _ = queued
+        player, added, _ = queued
         voice = self._voice(ctx)
         if voice and (voice.is_playing() or voice.is_paused()):
-            voice.stop()
+            player.request_skip(voice)
         if len(added) > 1:
             await ctx.reply(
                 f"Playing {len(added)} tracks now, ahead of the queue.", mention_author=False
@@ -329,7 +356,11 @@ class Music(commands.Cog):
         if not voice or not (voice.is_playing() or voice.is_paused()):
             await ctx.reply("Nothing is playing.", mention_author=False)
             return
-        voice.stop()
+        player = self.players.get(ctx.guild.id)
+        if player:
+            player.request_skip(voice)
+        else:
+            voice.stop()
         await ctx.message.add_reaction("⏭️")
 
     @commands.command(name=PAUSE_COMMAND, aliases=PAUSE_ALIASES)
@@ -377,6 +408,26 @@ class Music(commands.Cog):
             f"Cleared {cleared} queued track{'s' if cleared != 1 else ''}.", mention_author=False
         )
 
+    async def _toggle_loop(self, ctx: commands.Context, mode: str, on: str, off: str) -> None:
+        player = self.players.get(ctx.guild.id)
+        if not player or (not player.current and not player.queue):
+            await ctx.reply("Nothing is playing.", mention_author=False)
+            return
+        player.loop_mode = LOOP_OFF if player.loop_mode == mode else mode
+        await ctx.reply(on if player.loop_mode == mode else off, mention_author=False)
+
+    @commands.command(name=LOOP_COMMAND, aliases=LOOP_ALIASES)
+    async def loop(self, ctx: commands.Context) -> None:
+        """Toggle looping the current track until you skip it or turn loop off."""
+        await self._toggle_loop(
+            ctx, LOOP_TRACK, "🔂 Looping the current track.", "Loop is off."
+        )
+
+    @commands.command(name=LOOP_QUEUE_COMMAND, aliases=LOOP_QUEUE_ALIASES)
+    async def loop_queue(self, ctx: commands.Context) -> None:
+        """Toggle looping the whole queue; finished tracks go to the back."""
+        await self._toggle_loop(ctx, LOOP_QUEUE, "🔁 Looping the queue.", "Queue loop is off.")
+
     @commands.command(name=NOW_PLAYING_COMMAND, aliases=NOW_PLAYING_ALIASES)
     async def now_playing(self, ctx: commands.Context) -> None:
         """Show the track that is playing now."""
@@ -401,6 +452,10 @@ class Music(commands.Cog):
         lines = []
         if player.current:
             lines.append(f"Now: **{player.current.title}**")
+        if player.loop_mode == LOOP_TRACK:
+            lines.append("Loop: current track")
+        elif player.loop_mode == LOOP_QUEUE:
+            lines.append("Loop: queue")
         for index, track in enumerate(list(player.queue)[:QUEUE_DISPLAY_LIMIT], start=1):
             lines.append(f"{index}. {track.title} [{format_duration(track.duration)}]")
         remaining = len(player.queue) - QUEUE_DISPLAY_LIMIT
@@ -471,6 +526,8 @@ async def setup(bot: commands.Bot) -> None:
                 NOW_PLAYING_COMMAND,
                 QUEUE_COMMAND,
                 CLEAR_COMMAND,
+                LOOP_COMMAND,
+                LOOP_QUEUE_COMMAND,
             )
         ),
     )
